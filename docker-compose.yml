@@ -10,10 +10,9 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: password
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./backend/init.sql:/docker-entrypoint-initdb.d/init.sql
     networks:
       - career-coach-network
     healthcheck:
@@ -42,10 +41,10 @@ services:
   backend:
     build:
       context: ./backend
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.dev
     container_name: career-coach-backend
     environment:
-      NODE_ENV: production
+      NODE_ENV: development
       PORT: 5000
       DB_HOST: postgres
       DB_PORT: 5432
@@ -54,12 +53,13 @@ services:
       DB_PASSWORD: password
       REDIS_HOST: redis
       REDIS_PORT: 6379
-      JWT_SECRET: your-super-secret-jwt-key-change-this-in-production
+      JWT_SECRET: dev-jwt-secret-key
       AI_SERVICE_URL: http://ai-service:8000
       CORS_ORIGIN: http://localhost:3000
     ports:
       - "5000:5000"
     volumes:
+      - ./backend:/app
       - ./backend/uploads:/app/uploads
     depends_on:
       postgres:
@@ -74,15 +74,16 @@ services:
   ai-service:
     build:
       context: ./ai-service
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.simple
     container_name: career-coach-ai
     environment:
-      ENVIRONMENT: production
+      ENVIRONMENT: development
       REDIS_URL: redis://redis:6379
       ALLOWED_ORIGINS: http://localhost:3000,http://localhost:5000
     ports:
       - "8000:8000"
     volumes:
+      - ./ai-service:/app
       - ./ai-service/uploads:/app/uploads
     depends_on:
       redis:
@@ -95,48 +96,16 @@ services:
   frontend:
     build:
       context: ./frontend
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.dev
     container_name: career-coach-frontend
+    environment:
+      VITE_API_URL: http://localhost:5000
     ports:
-      - "3000:80"
+      - "3000:3000"
+    volumes:
+      - ./frontend:/app
     depends_on:
       - backend
-    networks:
-      - career-coach-network
-    restart: unless-stopped
-
-  # Prometheus (Monitoring)
-  prometheus:
-    image: prom/prometheus:latest
-    container_name: career-coach-prometheus
-    ports:
-      - "9090:9090"
-    volumes:
-      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
-      - prometheus_data:/prometheus
-    command:
-      - '--config.file=/etc/prometheus/prometheus.yml'
-      - '--storage.tsdb.path=/prometheus'
-      - '--web.console.libraries=/etc/prometheus/console_libraries'
-      - '--web.console.templates=/etc/prometheus/consoles'
-    networks:
-      - career-coach-network
-    restart: unless-stopped
-
-  # Grafana (Visualization)
-  grafana:
-    image: grafana/grafana:latest
-    container_name: career-coach-grafana
-    ports:
-      - "3001:3000"
-    environment:
-      GF_SECURITY_ADMIN_PASSWORD: admin
-    volumes:
-      - grafana_data:/var/lib/grafana
-      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards
-      - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources
-    depends_on:
-      - prometheus
     networks:
       - career-coach-network
     restart: unless-stopped
@@ -144,8 +113,6 @@ services:
 volumes:
   postgres_data:
   redis_data:
-  prometheus_data:
-  grafana_data:
 
 networks:
   career-coach-network:
