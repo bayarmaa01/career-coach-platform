@@ -10,7 +10,7 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: password
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks:
@@ -21,7 +21,7 @@ services:
     image: redis:7-alpine
     container_name: career-coach-redis
     ports:
-      - "6379:6379"
+      - "6380:6379"
     volumes:
       - redis_data:/data
     networks:
@@ -42,7 +42,7 @@ services:
       DB_USER: postgres
       DB_PASSWORD: password
       REDIS_HOST: redis
-      REDIS_PORT: 6379
+      REDIS_PORT: 6380
       JWT_SECRET: dev-jwt-secret-key
       AI_SERVICE_URL: http://ai-service:8000
       CORS_ORIGIN: http://localhost:3000
