@@ -1,0 +1,88 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: career-coach-db
+    environment:
+      POSTGRES_DB: career_coach
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - career-coach-network
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: career-coach-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - career-coach-network
+
+  # Backend API (Development mode - no build)
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.dev
+    container_name: career-coach-backend
+    environment:
+      NODE_ENV: development
+      PORT: 5000
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: career_coach
+      DB_USER: postgres
+      DB_PASSWORD: password
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      JWT_SECRET: dev-jwt-secret-key
+      AI_SERVICE_URL: http://ai-service:8000
+      CORS_ORIGIN: http://localhost:3000
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./backend:/app
+      - ./backend/uploads:/app/uploads
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - career-coach-network
+    command: npm run dev
+
+  # AI Service (Simplified)
+  ai-service:
+    build:
+      context: ./ai-service
+      dockerfile: Dockerfile
+    container_name: career-coach-ai
+    environment:
+      ENVIRONMENT: development
+      REDIS_URL: redis://redis:6379
+      ALLOWED_ORIGINS: http://localhost:3000,http://localhost:5000
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./ai-service:/app
+      - ./ai-service/uploads:/app/uploads
+    depends_on:
+      - redis
+    networks:
+      - career-coach-network
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  career-coach-network:
+    driver: bridge
