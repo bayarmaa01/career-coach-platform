@@ -1,0 +1,95 @@
+---
+- name: Deploy AI Career Coach Platform
+  hosts: all
+  become: yes
+  vars:
+    app_name: career-coach
+    app_user: deploy
+    app_dir: /opt/{{ app_name }}
+    docker_registry: your-registry.com
+    docker_tag: latest
+
+  tasks:
+    - name: Update system packages
+      apt:
+        update_cache: yes
+        upgrade: dist
+      when: ansible_os_family == "Debian"
+
+    - name: Install required packages
+      package:
+        name:
+          - docker.io
+          - docker-compose
+          - git
+          - curl
+          - wget
+          - htop
+        state: present
+
+    - name: Create application user
+      user:
+        name: "{{ app_user }}"
+        shell: /bin/bash
+        create_home: yes
+        groups: docker
+
+    - name: Create application directory
+      file:
+        path: "{{ app_dir }}"
+        state: directory
+        owner: "{{ app_user }}"
+        group: "{{ app_user }}"
+        mode: '0755'
+
+    - name: Clone application repository
+      git:
+        repo: https://github.com/your-org/career-coach-platform.git
+        dest: "{{ app_dir }}"
+        version: main
+        force: yes
+      become_user: "{{ app_user }}"
+
+    - name: Create environment file
+      template:
+        src: env.j2
+        dest: "{{ app_dir }}/.env"
+        owner: "{{ app_user }}"
+        group: "{{ app_user }}"
+        mode: '0600'
+
+    - name: Start Docker service
+      service:
+        name: docker
+        state: started
+        enabled: yes
+
+    - name: Pull Docker images
+      docker_image:
+        name: "{{ item }}"
+        tag: "{{ docker_tag }}"
+        source: pull
+      loop:
+        - "{{ docker_registry }}/career-coach-frontend"
+        - "{{ docker_registry }}/career-coach-backend"
+        - "{{ docker_registry }}/career-coach-ai-service"
+
+    - name: Run docker-compose
+      docker_compose:
+        project_src: "{{ app_dir }}"
+        state: present
+      become_user: "{{ app_user }}"
+
+    - name: Setup log rotation
+      template:
+        src: logrotate.j2
+        dest: /etc/logrotate.d/{{ app_name }}
+        mode: '0644'
+
+    - name: Setup monitoring
+      include_tasks: monitoring.yml
+      when: enable_monitoring | default(false)
+
+    - name: Setup backup
+      include_tasks: backup.yml
+      when: enable_backup | default(false)

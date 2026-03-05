@@ -1,0 +1,26 @@
+# Windows-compatible requirements
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+pydantic==2.5.0
+python-multipart==0.0.6
+# Use pre-built wheels for Windows
+spacy==3.7.2
+# Alternative to sentence-transformers that works better on Windows
+sentence-transformers==2.2.2
+scikit-learn==1.3.2
+numpy==1.24.3
+pandas==2.0.3
+nltk==3.8.1
+# Windows-compatible PDF processing
+pdfplumber==0.9.0
+python-docx==0.8.11
+# Use CPU version to avoid CUDA issues
+faiss-cpu==1.7.4
+redis==5.0.1
+python-dotenv==1.0.0
+httpx==0.25.2
+
+# Build dependencies for Windows
+setuptools==65.5.0
+wheel==0.41.2
+Cython==0.29.36
