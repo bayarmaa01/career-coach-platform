@@ -9,7 +9,7 @@ RUN apk add --no-cache python3 make g++
 COPY package*.json ./
 
 # Install dependencies
-RUN npm ci --only=production
+RUN npm ci
 
 # Copy source code
 COPY . .
@@ -17,16 +17,11 @@ COPY . .
 # Create uploads directory
 RUN mkdir -p uploads
 
-# Create non-root user
-RUN addgroup -g 1001 -S nodejs
-RUN adduser -S nodejs -u 1001
-
-# Change ownership of the app directory
-RUN chown -R nodejs:nodejs /app
-USER nodejs
+# Fix permissions for node_modules
+RUN chmod -R 755 node_modules/.bin/
 
 # Expose port 5000
 EXPOSE 5000
 
-# Start the application (skip build for dev)
-CMD ["npm", "start"]
+# Start the application
+CMD ["npm", "run", "dev"]
