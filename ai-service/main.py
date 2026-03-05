@@ -1,13 +1,19 @@
 from fastapi import FastAPI, File, UploadFile, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-import uvicorn
 import os
-from dotenv import load_dotenv
+from contextlib import asynccontextmanager
 
 from app.routers import resume, career
 from app.core.config import settings
 
-load_dotenv()
+# Handle spaCy import gracefully
+try:
+    from app.services.resume_processor import ResumeProcessor
+    USE_SIMPLE_PROCESSOR = False
+except ImportError:
+    from app.services.simple_resume_processor import SimpleResumeProcessor
+    USE_SIMPLE_PROCESSOR = True
+    print("Using simple resume processor (spaCy not available)")
 
 app = FastAPI(
     title="AI Career Coach Service",
@@ -15,34 +21,29 @@ app = FastAPI(
     version="1.0.0"
 )
 
+# Configure CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost:5000"],
+    allow_origins=settings.ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-app.include_router(resume.router, prefix="/api", tags=["resume"])
-app.include_router(career.router, prefix="/api", tags=["career"])
-
-@app.get("/")
-async def root():
-    return {
-        "message": "AI Career Coach Service",
-        "status": "running",
-        "version": "1.0.0"
-    }
+# Include routers
+app.include_router(resume.router, prefix="/api")
+app.include_router(career.router, prefix="/api")
 
 @app.get("/health")
 async def health_check():
-    return {
-        "status": "healthy",
-        "service": "ai-career-coach",
-        "version": "1.0.0"
-    }
+    return {"status": "healthy", "processor": "simple" if USE_SIMPLE_PROCESSOR else "spacy"}
+
+@app.get("/")
+async def root():
+    return {"message": "AI Career Coach Service", "status": "running"}
 
 if __name__ == "__main__":
+    import uvicorn
     uvicorn.run(
         "main:app",
         host="0.0.0.0",

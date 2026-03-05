@@ -10,10 +10,10 @@ RUN apt-get update && apt-get install -y \
 
 # Copy requirements and install Python dependencies
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt || pip install --no-cache-dir -r requirements-simple.txt
 
 # Download spaCy model (skip if fails)
-RUN python -m spacy download en_core_web_sm || echo "SpaCy model download failed, will download at runtime"
+RUN python -m spacy download en_core_web_sm || echo "SpaCy model download failed, will use fallback"
 
 # Copy application code
 COPY . .

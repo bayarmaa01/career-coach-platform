@@ -5,6 +5,7 @@ import json
 
 from app.schemas.resume import ResumeAnalysisRequest, ResumeAnalysisResponse, ResumeAnalysis
 from app.services.resume_processor import ResumeProcessor
+from app.services.simple_resume_processor import SimpleResumeProcessor
 from app.services.career_analyzer import CareerAnalyzer
 from app.core.config import settings
 
@@ -13,19 +14,31 @@ router = APIRouter()
 # Global storage for analysis results (in production, use Redis or database)
 analysis_results: Dict[str, Dict[str, Any]] = {}
 
-resume_processor = ResumeProcessor()
+# Global processor (will be set based on spaCy availability)
+resume_processor = None
 career_analyzer = CareerAnalyzer()
 
 @router.post("/analyze-resume")
 async def analyze_resume(request: ResumeAnalysisRequest, background_tasks: BackgroundTasks):
     """Analyze resume and return analysis results"""
+    global resume_processor
+    
     try:
         # Check if file exists
         if not os.path.exists(request.file_path):
             raise HTTPException(status_code=404, detail="Resume file not found")
         
+        # Initialize processor if not already done
+        if resume_processor is None:
+            try:
+                resume_processor = ResumeProcessor()
+                print("Using spaCy-based resume processor")
+            except ImportError:
+                resume_processor = SimpleResumeProcessor()
+                print("Using simple resume processor (spaCy not available)")
+        
         # Add background task for processing
-        background_tasks.add_task(process_resume_analysis, request.resume_id, request.file_path)
+        background_tasks.add_task(process_resume_analysis, request.resume_id, request.file_path, resume_processor)
         
         return ResumeAnalysisResponse(
             resume_id=request.resume_id,
@@ -36,27 +49,7 @@ async def analyze_resume(request: ResumeAnalysisRequest, background_tasks: Backg
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error processing resume: {str(e)}")
 
-@router.get("/analysis/{resume_id}")
-async def get_analysis(resume_id: str):
-    """Get resume analysis results"""
-    try:
-        if resume_id not in analysis_results:
-            raise HTTPException(status_code=404, detail="Analysis not found or not completed")
-        
-        result = analysis_results[resume_id]
-        
-        if result["status"] == "processing":
-            return ResumeAnalysisResponse(
-                resume_id=resume_id,
-                status="processing",
-                message="Analysis in progress..."
-            )
-        
-        return ResumeAnalysisResponse(
-            resume_id=resume_id,
-            status="completed",
-            analysis=ResumeAnalysis(**result["analysis"])
-        )
+async def process_resume_analysis(resume_id: str, file_path: str, processor):
         
     except HTTPException:
         raise

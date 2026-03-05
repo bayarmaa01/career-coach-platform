@@ -74,7 +74,7 @@ services:
   ai-service:
     build:
       context: ./ai-service
-      dockerfile: Dockerfile.simple
+      dockerfile: Dockerfile
     container_name: career-coach-ai
     environment:
       ENVIRONMENT: development
