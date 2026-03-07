@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { useForm } from 'react-hook-form';
 import { RootState, AppDispatch } from '../store/store';
-import { register, clearError } from '../store/slices/authSlice';
+import { register as registerUser, clearError } from '../store/slices/authSlice';
 import { RegisterData } from '../types';
 import { Eye, EyeOff, AlertCircle } from 'lucide-react';
 
@@ -37,7 +37,7 @@ const Register: React.FC = () => {
 
   const onSubmit = async (data: RegisterData) => {
     try {
-      await dispatch(register(data)).unwrap();
+      await dispatch(registerUser(data)).unwrap();
     } catch (error) {
       console.error('Registration failed:', error);
     }
