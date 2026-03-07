@@ -1,33 +1,46 @@
-import { Request, Response, NextFunction } from 'express';
-import jwt from 'jsonwebtoken';
-import { AuthRequest, JwtPayload } from '../types';
+import { Request, Response, NextFunction } from "express";
+import jwt from "jsonwebtoken";
+import { AuthRequest, JwtPayload } from "../types";
 
-export const authenticateToken = (req: AuthRequest, res: Response, next: NextFunction) => {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1];
+export const authenticateToken = (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): void => {
+  const authHeader = req.get("authorization");
+  const token = authHeader ? authHeader.split(" ")[1] : undefined;
 
   if (!token) {
-    return res.status(401).json({ message: 'Access token required' });
+    res.status(401).json({ message: "Access token required" });
+    return;
   }
 
-  jwt.verify(token, process.env.JWT_SECRET!, (err, decoded) => {
-    if (err) {
-      return res.status(403).json({ message: 'Invalid or expired token' });
-    }
-    
-    req.user = (decoded as JwtPayload);
+  try {
+    const decoded = jwt.verify(
+      token,
+      process.env.JWT_SECRET as string
+    ) as JwtPayload;
+
+    // Attach user to the request object
+    (req as AuthRequest).user = decoded;
     next();
-  });
+  } catch {
+    res.status(403).json({ message: "Invalid or expired token" });
+  }
 };
 
 export const requireRole = (roles: string[]) => {
-  return (req: AuthRequest, res: Response, next: NextFunction) => {
-    if (!req.user) {
-      return res.status(401).json({ message: 'Authentication required' });
+  return (req: Request, res: Response, next: NextFunction): void => {
+    const authReq = req as AuthRequest;
+
+    if (!authReq.user) {
+      res.status(401).json({ message: "Authentication required" });
+      return;
     }
 
-    if (!roles.includes(req.user.role)) {
-      return res.status(403).json({ message: 'Insufficient permissions' });
+    if (!roles.includes(authReq.user.role)) {
+      res.status(403).json({ message: "Insufficient permissions" });
+      return;
     }
 
     next();
