@@ -7,6 +7,8 @@ module.exports = {
   },
   extends: [
     'eslint:recommended',
+    '@typescript-eslint/recommended',
+    'plugin:react-hooks/recommended',
   ],
   ignorePatterns: [
     'dist',
@@ -21,13 +23,10 @@ module.exports = {
     },
   },
   plugins: [
-    'react',
-    'react-hooks',
     '@typescript-eslint',
+    'react-hooks',
   ],
   rules: {
-    'react/react-in-jsx-scope': 'off',
-    'react/prop-types': 'off',
     '@typescript-eslint/no-unused-vars': 'warn',
     '@typescript-eslint/no-explicit-any': 'warn',
     'react-hooks/rules-of-hooks': 'error',
