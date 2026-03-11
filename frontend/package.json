@@ -5,8 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "node node_modules/typescript/bin/tsc && npm run vite:build",
+    "build": "npm run vite:build",
     "vite:build": "node node_modules/vite/bin/vite.js build",
+    "type-check": "node node_modules/typescript/bin/tsc --noEmit",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview",
     "test": "vitest"

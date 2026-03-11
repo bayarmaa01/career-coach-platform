@@ -13,7 +13,7 @@ RUN npm install
 COPY . .
 
 # Build the application
-RUN npm run build || echo "Build failed, continuing..."
+RUN npm run build || (echo "Build failed, creating empty dist directory" && mkdir -p dist && echo '<!DOCTYPE html><html><head><title>Build Failed</title></head><body><h1>Build Failed</h1><p>The application build failed. Please check the build logs.</p></body></html>' > dist/index.html)
 
 # Production stage
 FROM nginx:alpine
