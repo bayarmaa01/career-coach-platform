@@ -29,7 +29,10 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
 
       - name: Install deps
-        run: npm install && npm run postinstall
+        run: npm install
+
+      - name: Fix permissions
+        run: chmod +x frontend/node_modules/.bin/vite || echo "Permissions already set"
 
       - name: Run lint
         run: npm run lint || true
@@ -58,7 +61,7 @@ jobs:
           cache-dependency-path: backend/package-lock.json
 
       - name: Install deps
-        run: npm install && npm run postinstall
+        run: npm install
 
       - name: Run lint
         run: npm run lint || true
