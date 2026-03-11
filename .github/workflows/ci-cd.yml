@@ -27,7 +27,7 @@ jobs:
           node-version: 18
 
       - name: Install deps
-        run: npm ci
+        run: npm ci --no-cache
 
       - name: Run lint
         run: npm run lint || true
@@ -54,7 +54,7 @@ jobs:
           node-version: 18
 
       - name: Install deps
-        run: npm ci
+        run: npm ci --no-cache
 
       - name: Run lint
         run: npm run lint || true
