@@ -3,6 +3,8 @@ import { Request, Response, NextFunction } from 'express';
 export interface AppError extends Error {
   statusCode?: number;
   isOperational?: boolean;
+  code?: number;
+  errors?: any;
 }
 
 export const errorHandler = (
@@ -27,7 +29,7 @@ export const errorHandler = (
   }
 
   if (err.name === 'ValidationError') {
-    const message = Object.values(err.errors).map((val: any) => val.message).join(', ');
+    const message = Object.values(err.errors || {}).map((val: any) => val.message).join(', ');
     error = { name: 'ValidationError', message, statusCode: 400 };
   }
 
