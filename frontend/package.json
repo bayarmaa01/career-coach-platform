@@ -5,10 +5,11 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build",
+    "build": "tsc && node ./node_modules/.bin/vite build",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview",
-    "test": "vitest"
+    "test": "vitest",
+    "postinstall": "node -e \"require('fs').chmodSync('node_modules/.bin/vite', '755')\" || echo 'Permission fix skipped'"
   },
   "dependencies": {
     "react": "^18.2.0",
