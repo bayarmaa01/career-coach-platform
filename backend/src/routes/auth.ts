@@ -79,7 +79,7 @@ router.post(
       });
     } catch (error) {
       console.error("Registration error:", error);
-      res.status(500).json({ message: "Server error" });
+      return res.status(500).json({ message: "Server error" });
     }
   }
 );
@@ -135,7 +135,7 @@ router.post(
       });
     } catch (error) {
       console.error("Login error:", error);
-      res.status(500).json({ message: "Server error" });
+      return res.status(500).json({ message: "Server error" });
     }
   }
 );
@@ -166,7 +166,7 @@ router.get("/me", authenticateToken, async (req: Request, res: Response) => {
     });
   } catch (error) {
     console.error("Get user error:", error);
-    res.status(500).json({ message: "Server error" });
+    return res.status(500).json({ message: "Server error" });
   }
 });
 
