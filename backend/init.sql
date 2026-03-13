@@ -22,7 +22,7 @@ CREATE TABLE IF NOT EXISTS resumes (
     file_path VARCHAR(500) NOT NULL,
     file_size INTEGER NOT NULL,
     mime_type VARCHAR(100) NOT NULL,
-    status VARCHAR(20) DEFAULT 'uploaded' CHECK (status IN ('uploading', 'processing', 'completed', 'failed')),
+    status VARCHAR(20) DEFAULT 'uploaded' CHECK (status IN ('uploaded', 'processing', 'completed', 'failed')),
     uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     processed_at TIMESTAMP,
     analysis_data JSONB
