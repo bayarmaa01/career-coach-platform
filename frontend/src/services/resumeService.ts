@@ -6,7 +6,7 @@ export const resumeService = {
     const formData = new FormData();
     formData.append('resume', file);
     
-    const response = await api.post('/resumes/upload', formData, {
+    const response = await api.post('/api/resumes/upload', formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
@@ -22,21 +22,21 @@ export const resumeService = {
   },
 
   getUserResumes: async (): Promise<Resume[]> => {
-    const response = await api.get('/resumes');
+    const response = await api.get('/api/resumes');
     return response.data;
   },
 
   deleteResume: async (resumeId: string): Promise<void> => {
-    await api.delete(`/resumes/${resumeId}`);
+    await api.delete(`/api/resumes/${resumeId}`);
   },
 
   analyzeResume: async (resumeId: string): Promise<ResumeAnalysis> => {
-    const response = await api.post(`/resumes/${resumeId}/analyze`);
+    const response = await api.post(`/api/resumes/${resumeId}/analyze`);
     return response.data;
   },
 
   getResumeAnalysis: async (resumeId: string): Promise<ResumeAnalysis> => {
-    const response = await api.get(`/resumes/${resumeId}/analysis`);
+    const response = await api.get(`/api/resumes/${resumeId}/analysis`);
     return response.data;
   },
 };
