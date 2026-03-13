@@ -6,16 +6,17 @@ on:
   pull_request:
     branches: [main]
 
-
 permissions:
   contents: read
-  packages: write 
-    
+  packages: write
+
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
+  IMAGE_PREFIX: ghcr.io/bayarmaa01/career-coach-platform
 
 jobs:
+
+# ---------------- FRONTEND ----------------
 
   frontend:
     runs-on: ubuntu-latest
@@ -30,21 +31,21 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 18
-          cache: 'npm'
-          cache-dependency-path: frontend/package-lock.json
 
-      - name: Install deps
+      - name: Install dependencies
         run: npm install
 
-      - name: Run lint
+      - name: Lint
         run: npm run lint || true
 
-      - name: Run tests
+      - name: Test
         run: npm test -- --passWithNoTests || true
 
       - name: Build
         run: npm run build
 
+
+# ---------------- BACKEND ----------------
 
   backend:
     runs-on: ubuntu-latest
@@ -59,21 +60,21 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 18
-          cache: 'npm'
-          cache-dependency-path: backend/package-lock.json
 
-      - name: Install deps
+      - name: Install dependencies
         run: npm install
 
-      - name: Run lint
+      - name: Lint
         run: npm run lint || true
 
-      - name: Run tests
+      - name: Test
         run: npm test -- --passWithNoTests || true
 
       - name: Build
         run: npm run build
 
+
+# ---------------- AI SERVICE ----------------
 
   ai-service:
     runs-on: ubuntu-latest
@@ -87,9 +88,9 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v4
         with:
-          python-version: 3.11
+          python-version: "3.11"
 
-      - name: Install deps
+      - name: Install dependencies
         run: |
           pip install -r requirements.txt
           pip install pytest
@@ -97,6 +98,8 @@ jobs:
       - name: Run tests
         run: pytest || true
 
+
+# ---------------- BUILD DOCKER IMAGES ----------------
 
   build-images:
     runs-on: ubuntu-latest
@@ -112,21 +115,23 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build frontend
+      - name: Build and Push Frontend
         run: |
-          docker build -t ghcr.io/bayarmaa01/career-coach-platform/frontend:latest ./frontend
-          docker push ghcr.io/bayarmaa01/career-coach-platform/frontend:latest
+          docker build -t $IMAGE_PREFIX/frontend:latest ./frontend
+          docker push $IMAGE_PREFIX/frontend:latest
 
-      - name: Build backend
+      - name: Build and Push Backend
         run: |
-          docker build -t ghcr.io/bayarmaa01/career-coach-platform/backend:latest ./backend
-          docker push ghcr.io/bayarmaa01/career-coach-platform/backend:latest
+          docker build -t $IMAGE_PREFIX/backend:latest ./backend
+          docker push $IMAGE_PREFIX/backend:latest
 
-      - name: Build AI service
+      - name: Build and Push AI Service
         run: |
-          docker build -t ghcr.io/bayarmaa01/career-coach-platform/ai-service:latest ./ai-service
-          docker push ghcr.io/bayarmaa01/career-coach-platform/ai-service:latest
+          docker build -t $IMAGE_PREFIX/ai-service:latest ./ai-service
+          docker push $IMAGE_PREFIX/ai-service:latest
 
+
+# ---------------- DEPLOY TO KUBERNETES ----------------
 
   deploy:
     runs-on: ubuntu-latest
@@ -142,10 +147,10 @@ jobs:
       - name: Configure kubeconfig
         run: |
           echo "${{ secrets.KUBE_CONFIG }}" | base64 -d > kubeconfig
-          export KUBECONFIG=kubeconfig
+          export KUBECONFIG=$PWD/kubeconfig
 
-      - name: Deploy
+      - name: Deploy new images
         run: |
-          kubectl set image deployment/frontend frontend=ghcr.io/${{ github.repository }}/frontend:latest
-          kubectl set image deployment/backend backend=ghcr.io/${{ github.repository }}/backend:latest
-          kubectl set image deployment/ai-service ai-service=ghcr.io/${{ github.repository }}/ai-service:latest
+          kubectl set image deployment/frontend frontend=$IMAGE_PREFIX/frontend:latest
+          kubectl set image deployment/backend backend=$IMAGE_PREFIX/backend:latest
+          kubectl set image deployment/ai-service ai-service=$IMAGE_PREFIX/ai-service:latest
