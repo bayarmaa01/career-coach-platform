@@ -8,12 +8,36 @@ const router = express.Router();
 
 router.post('/upload', authenticateToken, upload.single('resume'), async (req, res) => {
   try {
+    // Enhanced validation
     if (!req.file) {
-      return res.status(400).json({ message: 'No file uploaded' });
+      return res.status(400).json({ 
+        success: false,
+        message: 'No file uploaded',
+        code: 'NO_FILE'
+      });
     }
 
     const { originalname, filename, path, size, mimetype } = req.file;
     const userId = (req as any).user.id;
+
+    // Additional validation
+    if (!originalname || !filename || !path) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid file data',
+        code: 'INVALID_FILE_DATA'
+      });
+    }
+
+    if (size > 10 * 1024 * 1024) { // 10MB limit
+      return res.status(400).json({
+        success: false,
+        message: 'File too large. Maximum size is 10MB',
+        code: 'FILE_TOO_LARGE'
+      });
+    }
+
+    console.log(`Processing resume upload: ${originalname} (${size} bytes) for user ${userId}`);
 
     const result = await pool.query(
       'INSERT INTO resumes (user_id, file_name, original_name, file_path, file_size, mime_type, status, uploaded_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *',
@@ -21,34 +45,66 @@ router.post('/upload', authenticateToken, upload.single('resume'), async (req, r
     );
 
     const resume = result.rows[0];
+    console.log(`Resume inserted with ID: ${resume.id}`);
 
+    // AI Service Integration with better error handling
     try {
-      await axios.post(`${process.env.AI_SERVICE_URL}/analyze-resume`, {
+      const aiResponse = await axios.post(`${process.env.AI_SERVICE_URL}/analyze-resume`, {
         resumeId: resume.id,
-        filePath: path
+        file_path: path  // Fixed: use file_path instead of filePath
+      }, {
+        timeout: 10000,
+        headers: {
+          'Content-Type': 'application/json'
+        }
       });
+      
+      console.log('AI service called successfully:', aiResponse.status);
       
       await pool.query(
         'UPDATE resumes SET status = $1 WHERE id = $2',
         ['processing', resume.id]
       );
-    } catch (aiError) {
-      console.error('AI Service error:', aiError);
+
+      return res.status(201).json({
+        success: true,
+        data: {
+          id: resume.id,
+          fileName: resume.original_name,
+          uploadedAt: resume.uploaded_at,
+          status: 'processing'
+        }
+      });
+      
+    } catch (aiError: any) {
+      console.error('AI Service error:', aiError.message);
+      
       await pool.query(
         'UPDATE resumes SET status = $1 WHERE id = $2',
         ['failed', resume.id]
       );
-    }
 
-    res.status(201).json({
-      id: resume.id,
-      fileName: resume.original_name,
-      uploadedAt: resume.uploaded_at,
-      status: resume.status
+      // Return more detailed error information
+      return res.status(201).json({
+        success: true,
+        data: {
+          id: resume.id,
+          fileName: resume.original_name,
+          uploadedAt: resume.uploaded_at,
+          status: 'ai_service_failed'
+        },
+        warning: 'AI service unavailable, resume uploaded but not analyzed'
+      });
+    }
+  } catch (error: any) {
+    console.error('Upload error:', error.message);
+    
+    return res.status(500).json({
+      success: false,
+      message: 'Server error during upload',
+      code: 'UPLOAD_ERROR',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
-  } catch (error) {
-    console.error('Upload error:', error);
-    return res.status(500).json({ message: 'Server error' });
   }
 });
 
@@ -96,6 +152,70 @@ router.delete('/:id', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('Delete resume error:', error);
     return res.status(500).json({ message: 'Server error' });
+  }
+});
+
+router.get('/:id/analysis-status', authenticateToken, async (req, res) => {
+  try {
+    const resumeId = req.params.id;
+    const userId = (req as any).user.id;
+
+    // Verify resume belongs to user
+    const result = await pool.query(
+      'SELECT id, status FROM resumes WHERE id = $1 AND user_id = $2',
+      [resumeId, userId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Resume not found',
+        code: 'RESUME_NOT_FOUND'
+      });
+    }
+
+    const resume = result.rows[0];
+
+    // Check if we have analysis data
+    if (resume.status === 'completed' && resume.analysis_data) {
+      return res.json({
+        success: true,
+        data: {
+          status: 'completed',
+          analysis: resume.analysis_data
+        }
+      });
+    }
+
+    // If not completed, check AI service
+    try {
+      const aiResponse = await axios.get(`${process.env.AI_SERVICE_URL}/analysis-status/${resumeId}`);
+      
+      return res.json({
+        success: true,
+        data: {
+          status: aiResponse.data.status,
+          message: aiResponse.data.message,
+          progress: aiResponse.data.progress || 0
+        }
+      });
+    } catch (aiError) {
+      console.error('AI service status check error:', aiError.message);
+      
+      return res.json({
+        success: true,
+        data: {
+          status: resume.status
+        }
+      });
+    }
+  } catch (error) {
+    console.error('Analysis status error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Server error',
+      code: 'ANALYSIS_STATUS_ERROR'
+    });
   }
 });
 
