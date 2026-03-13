@@ -1,3 +1,12 @@
+volumes:
+  postgres_data:
+  redis_data:
+  uploads_volume:  # Shared volume for resume uploads
+
+networks:
+  career-coach-network:
+    driver: bridge
+
 services:
   # PostgreSQL Database
   postgres:
@@ -59,6 +68,7 @@ services:
     volumes:
       - ./backend:/app
       - ./backend/uploads:/app/uploads
+      - uploads_volume:/app/uploads  # Shared volume for AI service
     depends_on:
       postgres:
         condition: service_healthy
@@ -82,7 +92,7 @@ services:
       - "8000:8000"
     volumes:
       - ./ai-service:/app
-      - ./ai-service/uploads:/app/uploads
+      - uploads_volume:/app/uploads  # Shared volume for resume files
     depends_on:
       redis:
         condition: service_healthy
