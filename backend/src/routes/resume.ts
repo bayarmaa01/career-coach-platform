@@ -18,7 +18,8 @@ router.post('/upload', authenticateToken, upload.single('resume'), async (req, r
     }
 
     const { originalname, filename, path, size, mimetype } = req.file;
-    const userId = (req as any).user.id;
+    const authReq = req as any;
+    const userId = authReq.user?.id;
 
     // Additional validation
     if (!originalname || !filename || !path) {
@@ -26,6 +27,14 @@ router.post('/upload', authenticateToken, upload.single('resume'), async (req, r
         success: false,
         message: 'Invalid file data',
         code: 'INVALID_FILE_DATA'
+      });
+    }
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: 'User not authenticated',
+        code: 'USER_NOT_AUTHENTICATED'
       });
     }
 
@@ -103,14 +112,24 @@ router.post('/upload', authenticateToken, upload.single('resume'), async (req, r
       success: false,
       message: 'Server error during upload',
       code: 'UPLOAD_ERROR',
-      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      details: process.env.NODE_ENV === 'development' ? (error as Error).message : undefined
     });
   }
 });
 
 router.get('/', authenticateToken, async (req, res) => {
   try {
-    const userId = (req as any).user.id;
+    const authReq = req as any;
+    const userId = authReq.user?.id;
+    
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: 'User not authenticated'
+      });
+    }
+    
+    console.log(`Getting resumes for user: ${userId}`);
     
     const result = await pool.query(
       'SELECT id, original_name, status, uploaded_at, processed_at FROM resumes WHERE user_id = $1 ORDER BY uploaded_at DESC',
@@ -125,15 +144,18 @@ router.get('/', authenticateToken, async (req, res) => {
       processedAt: row.processed_at
     }));
 
+    console.log(`Found ${resumes.length} resumes for user ${userId}`);
+
     res.json({
       success: true,
       data: resumes
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Get resumes error:', error);
     return res.status(500).json({ 
       success: false,
-      message: 'Server error' 
+      message: 'Server error',
+      details: process.env.NODE_ENV === 'development' ? (error as Error).message : undefined
     });
   }
 });
@@ -161,11 +183,12 @@ router.delete('/:id', authenticateToken, async (req, res) => {
       success: true,
       message: 'Resume deleted successfully'
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Delete resume error:', error);
     return res.status(500).json({ 
       success: false,
-      message: 'Server error' 
+      message: 'Server error',
+      details: process.env.NODE_ENV === 'development' ? (error as Error).message : undefined
     });
   }
 });
