@@ -125,10 +125,16 @@ router.get('/', authenticateToken, async (req, res) => {
       processedAt: row.processed_at
     }));
 
-    res.json(resumes);
+    res.json({
+      success: true,
+      data: resumes
+    });
   } catch (error) {
     console.error('Get resumes error:', error);
-    return res.status(500).json({ message: 'Server error' });
+    return res.status(500).json({ 
+      success: false,
+      message: 'Server error' 
+    });
   }
 });
 
@@ -143,15 +149,24 @@ router.delete('/:id', authenticateToken, async (req, res) => {
     );
 
     if (result.rows.length === 0) {
-      return res.status(404).json({ message: 'Resume not found' });
+      return res.status(404).json({ 
+        success: false,
+        message: 'Resume not found' 
+      });
     }
 
     await pool.query('DELETE FROM resumes WHERE id = $1', [resumeId]);
 
-    res.json({ message: 'Resume deleted successfully' });
+    res.json({
+      success: true,
+      message: 'Resume deleted successfully'
+    });
   } catch (error) {
     console.error('Delete resume error:', error);
-    return res.status(500).json({ message: 'Server error' });
+    return res.status(500).json({ 
+      success: false,
+      message: 'Server error' 
+    });
   }
 });
 
@@ -199,7 +214,7 @@ router.get('/:id/analysis-status', authenticateToken, async (req, res) => {
           progress: aiResponse.data.progress || 0
         }
       });
-    } catch (aiError) {
+    } catch (aiError: any) {
       console.error('AI service status check error:', aiError.message);
       
       return res.json({
@@ -230,13 +245,19 @@ router.post('/:id/analyze', authenticateToken, async (req, res) => {
     );
 
     if (result.rows.length === 0) {
-      return res.status(404).json({ message: 'Resume not found' });
+      return res.status(404).json({ 
+        success: false,
+        message: 'Resume not found' 
+      });
     }
 
     const resume = result.rows[0];
 
     if (resume.status !== 'completed') {
-      return res.status(400).json({ message: 'Resume analysis not completed' });
+      return res.status(400).json({ 
+        success: false,
+        message: 'Resume analysis not completed' 
+      });
     }
 
     try {
@@ -247,14 +268,23 @@ router.post('/:id/analyze', authenticateToken, async (req, res) => {
         [JSON.stringify(analysisResponse.data), resumeId]
       );
 
-      res.json(analysisResponse.data);
-    } catch (aiError) {
+      res.json({
+        success: true,
+        data: analysisResponse.data
+      });
+    } catch (aiError: any) {
       console.error('AI Analysis error:', aiError);
-      res.status(500).json({ message: 'Analysis service unavailable' });
+      res.status(500).json({ 
+        success: false,
+        message: 'Analysis service unavailable' 
+      });
     }
   } catch (error) {
     console.error('Analyze resume error:', error);
-    return res.status(500).json({ message: 'Server error' });
+    return res.status(500).json({ 
+      success: false,
+      message: 'Server error' 
+    });
   }
 });
 
