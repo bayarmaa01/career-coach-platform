@@ -107,7 +107,7 @@ services:
       dockerfile: Dockerfile.dev
     container_name: career-coach-frontend
     environment:
-      VITE_API_URL: http://localhost:5000
+      VITE_API_URL: http://localhost:5000/api
     ports:
       - "3000:3000"
     volumes:
