@@ -14,10 +14,12 @@ export const login = createAsyncThunk(
   async (credentials: LoginCredentials, { rejectWithValue }) => {
     try {
       const response = await authService.login(credentials);
-      localStorage.setItem('token', response.token);
-      return response;
+      // Handle both response formats: {data: {user, token}} or {user, token}
+      const data = (response as any).data || response;
+      localStorage.setItem('token', data.token);
+      return data;
     } catch (error: any) {
-      return rejectWithValue(error.response?.data?.message || 'Login failed');
+      return rejectWithValue(error.response?.data?.message || error.message || 'Login failed');
     }
   }
 );
@@ -27,10 +29,12 @@ export const register = createAsyncThunk(
   async (data: RegisterData, { rejectWithValue }) => {
     try {
       const response = await authService.register(data);
-      localStorage.setItem('token', response.token);
-      return response;
+      // Handle both response formats: {data: {user, token}} or {user, token}
+      const authData = (response as any).data || response;
+      localStorage.setItem('token', authData.token);
+      return authData;
     } catch (error: any) {
-      return rejectWithValue(error.response?.data?.message || 'Registration failed');
+      return rejectWithValue(error.response?.data?.message || error.message || 'Registration failed');
     }
   }
 );
@@ -40,9 +44,11 @@ export const getCurrentUser = createAsyncThunk(
   async (_, { rejectWithValue }) => {
     try {
       const response = await authService.getCurrentUser();
-      return response;
+      // Handle both response formats: {data: user} or user
+      const user = (response as any).data || response;
+      return user;
     } catch (error: any) {
-      return rejectWithValue(error.response?.data?.message || 'Failed to get user');
+      return rejectWithValue(error.response?.data?.message || error.message || 'Failed to get user');
     }
   }
 );
