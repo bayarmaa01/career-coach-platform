@@ -48,7 +48,7 @@ router.post('/upload', authenticateToken, upload.single('resume'), async (req, r
     });
   } catch (error) {
     console.error('Upload error:', error);
-    res.status(500).json({ message: 'Server error' });
+    return res.status(500).json({ message: 'Server error' });
   }
 });
 
@@ -72,7 +72,7 @@ router.get('/', authenticateToken, async (req, res) => {
     res.json(resumes);
   } catch (error) {
     console.error('Get resumes error:', error);
-    res.status(500).json({ message: 'Server error' });
+    return res.status(500).json({ message: 'Server error' });
   }
 });
 
@@ -95,7 +95,7 @@ router.delete('/:id', authenticateToken, async (req, res) => {
     res.json({ message: 'Resume deleted successfully' });
   } catch (error) {
     console.error('Delete resume error:', error);
-    res.status(500).json({ message: 'Server error' });
+    return res.status(500).json({ message: 'Server error' });
   }
 });
 
@@ -134,7 +134,7 @@ router.post('/:id/analyze', authenticateToken, async (req, res) => {
     }
   } catch (error) {
     console.error('Analyze resume error:', error);
-    res.status(500).json({ message: 'Server error' });
+    return res.status(500).json({ message: 'Server error' });
   }
 });
 

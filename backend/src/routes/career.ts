@@ -59,7 +59,7 @@ router.get('/recommendations/:resumeId', authenticateToken, async (req, res) => 
     }
   } catch (error) {
     console.error('Get career recommendations error:', error);
-    res.status(500).json({ message: 'Server error' });
+    return res.status(500).json({ message: 'Server error' });
   }
 });
 
@@ -125,7 +125,7 @@ router.get('/skill-gap/:resumeId', authenticateToken, async (req, res) => {
     }
   } catch (error) {
     console.error('Get skill gap error:', error);
-    res.status(500).json({ message: 'Server error' });
+    return res.status(500).json({ message: 'Server error' });
   }
 });
 
@@ -192,7 +192,7 @@ router.get('/courses/:resumeId', authenticateToken, async (req, res) => {
     }
   } catch (error) {
     console.error('Get courses error:', error);
-    res.status(500).json({ message: 'Server error' });
+    return res.status(500).json({ message: 'Server error' });
   }
 });
 
@@ -253,7 +253,7 @@ router.get('/analysis/:resumeId', authenticateToken, async (req, res) => {
     }
   } catch (error) {
     console.error('Get analysis error:', error);
-    res.status(500).json({ message: 'Server error' });
+    return res.status(500).json({ message: 'Server error' });
   }
 });
 

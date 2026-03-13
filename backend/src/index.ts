@@ -1,4 +1,4 @@
-import express from 'express';
+import express, { Application, Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import compression from 'compression';
@@ -15,48 +15,70 @@ import { notFound } from './middleware/notFound';
 
 dotenv.config();
 
-const app = express();
+const app: Application = express();
 const PORT = process.env.PORT || 5000;
+const NODE_ENV = process.env.NODE_ENV || 'development';
 
 const limiter = rateLimit({
   windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '900000'),
   max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || '100'),
-  message: 'Too many requests from this IP, please try again later.',
+  message: {
+    error: 'Too many requests from this IP, please try again later.'
+  },
   standardHeaders: true,
   legacyHeaders: false,
 });
 
-app.use(helmet());
+// Security and middleware
+app.use(helmet({
+  contentSecurityPolicy: NODE_ENV === 'production' ? undefined : false,
+}));
 app.use(compression());
-app.use(morgan('combined'));
+app.use(morgan(NODE_ENV === 'production' ? 'combined' : 'dev'));
 app.use(limiter);
 
+// CORS configuration
 app.use(cors({
-  origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
+  origin: process.env.CORS_ORIGIN?.split(',') || ['http://localhost:3000'],
   credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
 }));
 
+// Body parsing
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
+// Static files
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
+// API routes
 app.use('/api/auth', authRoutes);
 app.use('/api/resumes', resumeRoutes);
 app.use('/api/career', careerRoutes);
 
-app.get('/api/health', (req, res) => {
+// Health check endpoint
+app.get('/api/health', (req: Request, res: Response): void => {
   res.status(200).json({
     status: 'OK',
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),
+    environment: NODE_ENV,
+    version: process.env.npm_package_version || '1.0.0',
   });
 });
 
+// Error handling middleware
 app.use(notFound);
 app.use(errorHandler);
 
-app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
-  console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
-});
+// Start server
+if (NODE_ENV !== 'test') {
+  app.listen(PORT, (): void => {
+    console.log(`🚀 Server is running on port ${PORT}`);
+    console.log(`📝 Environment: ${NODE_ENV}`);
+    console.log(`🏥 Health check: http://localhost:${PORT}/api/health`);
+  });
+}
+
+export default app;
