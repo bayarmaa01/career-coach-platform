@@ -117,11 +117,3 @@ services:
     networks:
       - career-coach-network
     restart: unless-stopped
-
-volumes:
-  postgres_data:
-  redis_data:
-
-networks:
-  career-coach-network:
-    driver: bridge
