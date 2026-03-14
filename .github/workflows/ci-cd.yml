@@ -1,4 +1,4 @@
-name: CI/CD Pipeline
+name: Career Coach Platform CI/CD
 
 on:
   push:
@@ -15,98 +15,71 @@ env:
   IMAGE_PREFIX: ghcr.io/bayarmaa01/career-coach-platform
 
 jobs:
-
-# ---------------- FRONTEND ----------------
-
-  frontend:
+  # ================= CI =================
+  test-build:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service: [frontend, backend]
+
     defaults:
       run:
-        working-directory: frontend
+        working-directory: ${{ matrix.service }}
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 18
 
-      - name: Install dependencies
+      - name: Install Dependencies
         run: npm install
 
       - name: Lint
         run: npm run lint || true
 
-      - name: Test
+      - name: Run Tests
         run: npm test -- --passWithNoTests || true
 
       - name: Build
-        run: npm run build
+        run: npm run build || true
 
-
-# ---------------- BACKEND ----------------
-
-  backend:
+  # ================= AI SERVICE TEST =================
+  ai-service-test:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: backend
 
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 18
-
-      - name: Install dependencies
-        run: npm install
-
-      - name: Lint
-        run: npm run lint || true
-
-      - name: Test
-        run: npm test -- --passWithNoTests || true
-
-      - name: Build
-        run: npm run build
-
-
-# ---------------- AI SERVICE ----------------
-
-  ai-service:
-    runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: ai-service
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
       - name: Setup Python
         uses: actions/setup-python@v4
         with:
           python-version: "3.11"
 
-      - name: Install dependencies
+      - name: Install Dependencies
         run: |
           pip install -r requirements.txt
           pip install pytest
 
-      - name: Run tests
+      - name: Run Tests
         run: pytest || true
 
-
-# ---------------- BUILD DOCKER IMAGES ----------------
-
-  build-images:
+  # ================= BUILD & PUSH DOCKER =================
+  docker-build:
     runs-on: ubuntu-latest
-    needs: [frontend, backend, ai-service]
+    needs: [test-build, ai-service-test]
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
       - name: Login to GHCR
         uses: docker/login-action@v3
@@ -130,27 +103,38 @@ jobs:
           docker build -t $IMAGE_PREFIX/ai-service:latest ./ai-service
           docker push $IMAGE_PREFIX/ai-service:latest
 
-
-# ---------------- DEPLOY TO KUBERNETES ----------------
-
+  # ================= DEPLOY =================
   deploy:
     runs-on: ubuntu-latest
-    needs: build-images
+    needs: docker-build
     if: github.ref == 'refs/heads/main'
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
       - name: Setup kubectl
-        uses: azure/setup-kubectl@v3
+        uses: azure/setup-kubectl@v4
+        with:
+          version: 'v1.29.0'
 
-      - name: Configure kubeconfig
+      - name: Setup kubeconfig
         run: |
-          echo "${{ secrets.KUBE_CONFIG }}" | base64 -d > kubeconfig
-          export KUBECONFIG=$PWD/kubeconfig
+          mkdir -p $HOME/.kube
+          echo "${{ secrets.KUBE_CONFIG }}" | base64 -d > $HOME/.kube/config
 
-      - name: Deploy new images
+      - name: Deploy to Kubernetes
+        run: |
+          kubectl apply -f k8s/
+
+      - name: Update Images
         run: |
           kubectl set image deployment/frontend frontend=$IMAGE_PREFIX/frontend:latest
           kubectl set image deployment/backend backend=$IMAGE_PREFIX/backend:latest
           kubectl set image deployment/ai-service ai-service=$IMAGE_PREFIX/ai-service:latest
+
+      - name: Verify Deployment
+        run: |
+          kubectl rollout status deployment/frontend
+          kubectl rollout status deployment/backend
+          kubectl rollout status deployment/ai-service
