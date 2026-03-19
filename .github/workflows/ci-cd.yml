@@ -154,8 +154,14 @@ jobs:
 
       - name: Commit and Push Helm Updates
         run: |
-          git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
+          git config --global user.name "github-actions"
+          git config --global user.email "action@github.com"
+          
           git add helm/values.yaml
-          git commit -m "ci: Update Helm chart image tags [skip ci]"
-          git push
+          
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "Update image tag"
+            git push
+          fi
