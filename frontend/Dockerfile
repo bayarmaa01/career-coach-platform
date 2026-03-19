@@ -13,7 +13,11 @@ RUN npm install --no-audit --no-fund
 COPY . .
 
 # Clear esbuild cache to avoid version mismatch
-RUN npm run build -- --force || (echo "Build failed, creating empty dist directory" && mkdir -p dist && echo '<!DOCTYPE html><html><head><title>Build Failed</title></head><body><h1>Build Failed</h1><p>The application build failed. Please check the build logs.</p></body></html>' > dist/index.html)
+RUN rm -rf node_modules/.vite node_modules/.cache && \
+    npm run build || \
+    (echo "Build failed, creating empty dist directory" && \
+     mkdir -p dist && \
+     echo '<!DOCTYPE html><html><head><title>Build Failed</title></head><body><h1>Build Failed</h1><p>The application build failed. Please check the build logs.</p></body></html>' > dist/index.html)
 
 # Production stage
 FROM nginx:alpine
