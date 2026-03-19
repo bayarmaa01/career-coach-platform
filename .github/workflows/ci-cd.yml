@@ -12,7 +12,7 @@ permissions:
 
 env:
   REGISTRY: docker.io
-  IMAGE_PREFIX: ${{ secrets.DOCKER_USERNAME }}/career-coach
+  IMAGE_PREFIX: bayarmaa01/career-coach-platform
 
 jobs:
   # ================= CI: BUILD & TEST =================
@@ -87,14 +87,11 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Login to Docker Hub
-        uses: docker/login-action@v4
+      - name: Login to DockerHub
+        uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
-
-      - name: Test Docker Hub Authentication
-        run: docker pull hello-world
 
       - name: Extract metadata
         id: meta
@@ -102,10 +99,7 @@ jobs:
         with:
           images: ${{ env.IMAGE_PREFIX }}
           tags: |
-            type=ref,event=branch
-            type=ref,event=pr
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
+            bayarmaa01/career-coach-platform:frontend-latest
 
       - name: Build and Push Frontend
         uses: docker/build-push-action@v5
@@ -113,7 +107,7 @@ jobs:
           context: ./frontend
           platforms: linux/amd64
           push: true
-          tags: ${{ steps.meta.outputs.tags }}-frontend
+          tags: bayarmaa01/career-coach-platform:frontend-latest
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
@@ -124,7 +118,7 @@ jobs:
           context: ./backend
           platforms: linux/amd64
           push: true
-          tags: ${{ steps.meta.outputs.tags }}-backend
+          tags: bayarmaa01/career-coach-platform:backend-latest
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
@@ -135,7 +129,7 @@ jobs:
           context: ./ai-service
           platforms: linux/amd64
           push: true
-          tags: ${{ steps.meta.outputs.tags }}-ai-service
+          tags: bayarmaa01/career-coach-platform:ai-service-latest
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
@@ -154,9 +148,9 @@ jobs:
       - name: Update Helm Chart Values
         run: |
           # Update image tags in values.yaml
-          sed -i "s|frontendImage:.*|frontendImage: ${{ env.IMAGE_PREFIX }}/frontend:latest|g" helm/values.yaml
-          sed -i "s|backendImage:.*|backendImage: ${{ env.IMAGE_PREFIX }}/backend:latest|g" helm/values.yaml
-          sed -i "s|aiServiceImage:.*|aiServiceImage: ${{ env.IMAGE_PREFIX }}/ai-service:latest|g" helm/values.yaml
+          sed -i "s|frontendImage:.*|frontendImage: bayarmaa01/career-coach-platform:frontend-latest|g" helm/values.yaml
+          sed -i "s|backendImage:.*|backendImage: bayarmaa01/career-coach-platform:backend-latest|g" helm/values.yaml
+          sed -i "s|aiServiceImage:.*|aiServiceImage: bayarmaa01/career-coach-platform:ai-service-latest|g" helm/values.yaml
 
       - name: Commit and Push Helm Updates
         run: |
