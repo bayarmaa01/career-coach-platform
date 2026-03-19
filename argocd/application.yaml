@@ -1,0 +1,46 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: career-coach
+  namespace: argocd
+  labels:
+    app: career-coach
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/bayarmaa01/career-coach-platform.git
+    targetRevision: HEAD
+    path: helm
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: career-coach
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+  ignoreDifferences:
+    - jsonPointers:
+      - /spec/replicas
+  info:
+    - name: career-coach
+      value: |
+        This is the AI Career Coach Platform deployment.
+        It includes frontend, backend, AI service, and supporting infrastructure.
+  sources:
+    - repoURL: https://github.com/bayarmaa01/career-coach-platform.git
+      targetRevision: HEAD
+      path: helm
+      helm:
+        valueFiles:
+        - values.yaml
+        - values-prod.yaml
+        - secrets.yaml
+        - configmap.yaml

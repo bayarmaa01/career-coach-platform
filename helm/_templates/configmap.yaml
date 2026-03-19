@@ -1,0 +1,24 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "career-coach.fullname" . }}
+  labels:
+    {{- include "career-coach.labels" . | nindent 4 }}
+data:
+  NODE_ENV: {{ .Values.backend.env.NODE_ENV | quote }}
+  PORT: {{ .Values.backend.env.PORT | quote }}
+  JWT_EXPIRES_IN: {{ .Values.backend.env.JWT_EXPIRES_IN | quote }}
+  MAX_FILE_SIZE: {{ .Values.backend.env.MAX_FILE_SIZE | quote }}
+  RATE_LIMIT_WINDOW_MS: {{ .Values.backend.env.RATE_LIMIT_WINDOW_MS | quote }}
+  RATE_LIMIT_MAX_REQUESTS: {{ .Values.backend.env.RATE_LIMIT_MAX_REQUESTS | quote }}
+  DATABASE_HOST: {{ include "career-coach.postgresql.fullname" . | quote }}
+  DATABASE_PORT: "5432"
+  DATABASE_NAME: {{ .Values.postgresql.auth.database | quote }}
+  DATABASE_USER: {{ .Values.postgresql.auth.postgresUsername | quote }}
+  REDIS_HOST: {{ include "career-coach.redis.fullname" . | quote }}
+  REDIS_PORT: "6379"
+  AI_SERVICE_URL: "http://{{ include \"career-coach.fullname\" . }}-ai-service:8000"
+  PYTHONPATH: {{ .Values.aiService.env.PYTHONPATH | quote }}
+  LOG_LEVEL: {{ .Values.aiService.env.LOG_LEVEL | quote }}
+  FRONTEND_URL: {{ .Values.ingress.hosts[0].host | quote }}
+  BACKEND_URL: {{ .Values.ingress.hosts[1].host | quote }}
