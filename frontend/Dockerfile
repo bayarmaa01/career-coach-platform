@@ -1,23 +1,19 @@
 # Build stage
-FROM node:20-alpine AS builder
+FROM node:18-alpine AS builder
 
 WORKDIR /app
 
 # Copy package files
 COPY package*.json ./
 
-# Install all dependencies (including dev dependencies for build)
-RUN npm install --no-audit --no-fund
+# Clean install dependencies
+RUN npm ci
 
 # Copy source code
 COPY . .
 
-# Clear esbuild cache to avoid version mismatch
-RUN rm -rf node_modules/.vite node_modules/.cache && \
-    npm run build || \
-    (echo "Build failed, creating empty dist directory" && \
-     mkdir -p dist && \
-     echo '<!DOCTYPE html><html><head><title>Build Failed</title></head><body><h1>Build Failed</h1><p>The application build failed. Please check the build logs.</p></body></html>' > dist/index.html)
+# Build application
+RUN ESBUILD_BINARY_PATH=/usr/local/bin/esbuild npm run build
 
 # Production stage
 FROM nginx:alpine
