@@ -12,7 +12,7 @@ permissions:
 
 env:
   REGISTRY: docker.io
-  IMAGE_PREFIX: bayarmaa01/career-coach-platform
+  IMAGE_PREFIX: bayarmaa/career-coach-platform
 
 jobs:
   # ================= CI: BUILD & TEST =================
@@ -99,7 +99,7 @@ jobs:
         with:
           images: ${{ env.IMAGE_PREFIX }}
           tags: |
-            bayarmaa01/career-coach-platform:frontend-latest
+            bayarmaa/career-coach-platform:frontend-latest
 
       - name: Build and Push Frontend
         uses: docker/build-push-action@v5
@@ -107,7 +107,7 @@ jobs:
           context: ./frontend
           platforms: linux/amd64
           push: true
-          tags: bayarmaa01/career-coach-platform:frontend-latest
+          tags: bayarmaa/career-coach-platform:frontend-latest
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
@@ -118,7 +118,7 @@ jobs:
           context: ./backend
           platforms: linux/amd64
           push: true
-          tags: bayarmaa01/career-coach-platform:backend-latest
+          tags: bayarmaa/career-coach-platform:backend-latest
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
@@ -129,7 +129,7 @@ jobs:
           context: ./ai-service
           platforms: linux/amd64
           push: true
-          tags: bayarmaa01/career-coach-platform:ai-service-latest
+          tags: bayarmaa/career-coach-platform:ai-service-latest
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
@@ -148,9 +148,9 @@ jobs:
       - name: Update Helm Chart Values
         run: |
           # Update image tags in values.yaml
-          sed -i "s|frontendImage:.*|frontendImage: bayarmaa01/career-coach-platform:frontend-latest|g" helm/values.yaml
-          sed -i "s|backendImage:.*|backendImage: bayarmaa01/career-coach-platform:backend-latest|g" helm/values.yaml
-          sed -i "s|aiServiceImage:.*|aiServiceImage: bayarmaa01/career-coach-platform:ai-service-latest|g" helm/values.yaml
+          sed -i "s|frontendImage:.*|frontendImage: bayarmaa/career-coach-platform:frontend-latest|g" helm/values.yaml
+          sed -i "s|backendImage:.*|backendImage: bayarmaa/career-coach-platform:backend-latest|g" helm/values.yaml
+          sed -i "s|aiServiceImage:.*|aiServiceImage: bayarmaa/career-coach-platform:ai-service-latest|g" helm/values.yaml
 
       - name: Commit and Push Helm Updates
         run: |
