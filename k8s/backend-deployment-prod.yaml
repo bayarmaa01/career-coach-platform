@@ -7,7 +7,7 @@ metadata:
     app: backend-prod
     tier: api
 spec:
-  replicas: 2
+  replicas: 1
   selector:
     matchLabels:
       app: backend-prod
@@ -19,14 +19,14 @@ spec:
     spec:
       containers:
       - name: backend
-        image: career-coach/backend:latest
+        image: node:18-alpine
         ports:
-        - containerPort: 5000
+        - containerPort: 80
         env:
         - name: NODE_ENV
           value: "production"
         - name: PORT
-          value: "5000"
+          value: "80"
         - name: DATABASE_HOST
           value: "postgres-service"
         - name: DATABASE_PORT
@@ -56,7 +56,7 @@ spec:
               name: app-secrets
               key: REDIS_PASSWORD
         - name: AI_SERVICE_URL
-          value: "http://ai-service:8000"
+          value: "http://ai-service:80"
         - name: JWT_SECRET
           valueFrom:
             secretKeyRef:
@@ -92,21 +92,21 @@ spec:
           mountPath: /app/uploads
         resources:
           requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
             memory: "256Mi"
             cpu: "250m"
-          limits:
-            memory: "512Mi"
-            cpu: "500m"
         livenessProbe:
           httpGet:
             path: /api/health
-            port: 5000
+            port: 80
           initialDelaySeconds: 30
           periodSeconds: 10
         readinessProbe:
           httpGet:
             path: /api/health
-            port: 5000
+            port: 80
           initialDelaySeconds: 5
           periodSeconds: 5
       volumes:
@@ -126,6 +126,6 @@ spec:
   selector:
     app: backend-prod
   ports:
-  - port: 5000
-    targetPort: 5000
+  - port: 80
+    targetPort: 80
   type: ClusterIP

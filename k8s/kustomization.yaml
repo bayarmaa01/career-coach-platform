@@ -1,24 +1,16 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
-namespace: career-coach
+namespace: career-coach-prod
 resources:
-  - namespace.yaml
-  - secrets.yaml
+  - namespace-prod.yaml
+  - secrets-prod.yaml
+  - persistent-volume.yaml
   - postgres-statefulset.yaml
   - postgres-service.yaml
-  - redis-deployment.yaml
+  - redis-deployment-prod.yaml
   - redis-service.yaml
-  - backend-deployment.yaml
-  - backend-service.yaml
-  - ai-service-deployment.yaml
-  - ai-service-service.yaml
-  - frontend-deployment.yaml
-  - frontend-service.yaml
-  - ingress.yaml
-images:
-  - name: bayarmaa/career-coach-platform
-    newTag: frontend-latest
-  - name: bayarmaa/career-coach-platform
-    newTag: backend-latest
-  - name: bayarmaa/career-coach-platform
-    newTag: ai-service-latest
+  - configmap.yaml
+  - frontend-deployment-prod.yaml
+  - backend-deployment-prod.yaml
+  - ai-service-deployment-prod.yaml
+  - ingress-prod.yaml

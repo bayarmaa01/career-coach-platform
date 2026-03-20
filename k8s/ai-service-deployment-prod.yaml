@@ -19,9 +19,9 @@ spec:
     spec:
       containers:
       - name: ai-service
-        image: career-coach/ai-service:latest
+        image: python:3.11-slim
         ports:
-        - containerPort: 8000
+        - containerPort: 80
         env:
         - name: PYTHONPATH
           value: "/app"
@@ -48,21 +48,21 @@ spec:
           mountPath: /app/models
         resources:
           requests:
-            memory: "512Mi"
-            cpu: "500m"
+            memory: "128Mi"
+            cpu: "100m"
           limits:
-            memory: "1Gi"
-            cpu: "1000m"
+            memory: "256Mi"
+            cpu: "250m"
         livenessProbe:
           httpGet:
-            path: /health
-            port: 8000
+            path: /ai/health
+            port: 80
           initialDelaySeconds: 60
           periodSeconds: 30
         readinessProbe:
           httpGet:
-            path: /health
-            port: 8000
+            path: /ai/health
+            port: 80
           initialDelaySeconds: 30
           periodSeconds: 10
       volumes:
@@ -85,6 +85,6 @@ spec:
   selector:
     app: ai-service-prod
   ports:
-  - port: 8000
-    targetPort: 8000
+  - port: 80
+    targetPort: 80
   type: ClusterIP
