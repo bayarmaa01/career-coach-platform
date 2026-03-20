@@ -1,7 +1,5 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
-metadata:
-  name: career-coach
 namespace: career-coach
 resources:
   - namespace.yaml
@@ -18,9 +16,9 @@ resources:
   - frontend-service.yaml
   - ingress.yaml
 images:
-  - name: career-coach-frontend
-    newTag: latest
-  - name: career-coach-backend
-    newTag: latest
-  - name: career-coach-ai-service
-    newTag: latest
+  - name: bayarmaa/career-coach-platform
+    newTag: frontend-latest
+  - name: bayarmaa/career-coach-platform
+    newTag: backend-latest
+  - name: bayarmaa/career-coach-platform
+    newTag: ai-service-latest
