@@ -1,0 +1,90 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ai-service-prod
+  namespace: career-coach-prod
+  labels:
+    app: ai-service-prod
+    tier: ai
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ai-service-prod
+  template:
+    metadata:
+      labels:
+        app: ai-service-prod
+        tier: ai
+    spec:
+      containers:
+      - name: ai-service
+        image: python:3.11-slim
+        ports:
+        - containerPort: 80
+        env:
+        - name: PYTHONPATH
+          value: "/app"
+        - name: REDIS_HOST
+          value: "redis-service"
+        - name: REDIS_PORT
+          value: "6379"
+        - name: REDIS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: app-secrets
+              key: REDIS_PASSWORD
+        - name: MODEL_CACHE_DIR
+          value: "/app/models"
+        - name: LOG_LEVEL
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: LOG_LEVEL
+        volumeMounts:
+        - name: uploads-volume
+          mountPath: /app/uploads
+        - name: models-volume
+          mountPath: /app/models
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "50m"
+          limits:
+            memory: "128Mi"
+            cpu: "100m"
+        livenessProbe:
+          httpGet:
+            path: /ai/health
+            port: 80
+          initialDelaySeconds: 60
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /ai/health
+            port: 80
+          initialDelaySeconds: 30
+          periodSeconds: 10
+      volumes:
+      - name: uploads-volume
+        persistentVolumeClaim:
+          claimName: uploads-pvc
+      - name: models-volume
+        persistentVolumeClaim:
+          claimName: models-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ai-service
+  namespace: career-coach-prod
+  labels:
+    app: ai-service-prod
+    tier: ai
+spec:
+  selector:
+    app: ai-service-prod
+  ports:
+  - port: 80
+    targetPort: 80
+  type: ClusterIP

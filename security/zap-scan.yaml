@@ -1,0 +1,80 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: zap-config
+  namespace: career-coach-prod
+data:
+  zap-config.xml: |
+    <?xml version="1.0" encoding="UTF-8" standalone="no"?>
+    <configuration>
+        <scanner>
+            <strength>HIGH</strength>
+            <alertThreshold>HIGH</alertThreshold>
+        </scanner>
+        <spider>
+            <maxDepth>10</maxDepth>
+            <acceptCookies>true</acceptCookies>
+            <handleODataParametersVisited>true</handleODataParametersVisited>
+        </spider>
+        <authentication>
+            <loginUrl>https://api.career-coach.example.com/api/auth/login</loginUrl>
+            <username>test@career-coach.example.com</username>
+            <password>TestPassword123!</password>
+        </authentication>
+    </configuration>
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: zap-scan
+  namespace: career-coach-prod
+  annotations:
+    argocd.argoproj.io/hook: PostSync
+    argocd.argoproj.io/hook-delete-policy: HookSucceeded
+spec:
+  template:
+    spec:
+      containers:
+      - name: zap-baseline
+        image: owasp/zap2docker-stable
+        command: ["zap-baseline.py"]
+        args:
+        - "-t"
+        - "https://career-coach.example.com"
+        - "-t"
+        - "https://api.career-coach.example.com"
+        - "-J"
+        - "zap-report.json"
+        env:
+        - name: ZAP_CONFIG
+          value: "/zap/wrk/config/zap-config.xml"
+        volumeMounts:
+        - name: zap-config
+          mountPath: /zap/wrk/config
+        resources:
+          requests:
+            memory: "1Gi"
+            cpu: "500m"
+          limits:
+            memory: "2Gi"
+            cpu: "1000m"
+      volumes:
+      - name: zap-config
+        configMap:
+          name: zap-config
+      restartPolicy: Never
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: zap-service
+  namespace: career-coach-prod
+  labels:
+    app: zap-scan
+spec:
+  selector:
+    app: zap-scan
+  ports:
+  - port: 8080
+    targetPort: 8080
+  type: ClusterIP
