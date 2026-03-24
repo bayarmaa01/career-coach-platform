@@ -30,11 +30,11 @@ spec:
               key: BACKEND_URL
         resources:
           requests:
-            memory: "128Mi"
-            cpu: "100m"
+            memory: "32Mi"
+            cpu: "25m"
           limits:
-            memory: "256Mi"
-            cpu: "250m"
+            memory: "64Mi"
+            cpu: "50m"
         livenessProbe:
           httpGet:
             path: /
