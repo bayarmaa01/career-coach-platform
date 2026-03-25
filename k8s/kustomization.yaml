@@ -4,6 +4,7 @@ namespace: career-coach-prod
 resources:
   - namespace-prod.yaml
   - secrets-prod.yaml
+  - postgres-init-configmap.yaml
   - persistent-volume.yaml
   - postgres-statefulset.yaml
   - postgres-service.yaml

@@ -1,0 +1,17 @@
+# Fix for PostgreSQL data directory issue
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-init
+  namespace: career-coach-prod
+data:
+  init.sh: |
+    #!/bin/sh
+    set -e
+    if [ -d "/var/lib/postgresql/data" ] && [ "$(ls -A /var/lib/postgresql/data)" != "" ]; then
+      echo "Data directory exists and is not empty, backing up..."
+      mv /var/lib/postgresql/data /var/lib/postgresql/data_backup_$(date +%s)
+    fi
+    mkdir -p /var/lib/postgresql/data
+    chown -R postgres:postgres /var/lib/postgresql/data
+    chmod 700 /var/lib/postgresql/data
