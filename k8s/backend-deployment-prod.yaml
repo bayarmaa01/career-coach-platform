@@ -128,5 +128,5 @@ spec:
   ports:
   - port: 4100
     targetPort: 4100
-    nodePort: 4100
+    nodePort: 31001
   type: NodePort

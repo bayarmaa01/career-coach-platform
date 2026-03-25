@@ -141,9 +141,9 @@ get_service_urls() {
     local minikube_ip=$(minikube ip)
     
     # Get NodePort for services
-    local frontend_port=$(kubectl get svc frontend-service -n career-coach-prod -o jsonpath='{.spec.ports[0].nodePort}' 2>/dev/null || echo "3100")
-    local backend_port=$(kubectl get svc backend-service -n career-coach-prod -o jsonpath='{.spec.ports[0].nodePort}' 2>/dev/null || echo "4100")
-    local ai_service_port=$(kubectl get svc ai-service -n career-coach-prod -o jsonpath='{.spec.ports[0].nodePort}' 2>/dev/null || echo "5100")
+    local frontend_port=$(kubectl get svc frontend-service -n career-coach-prod -o jsonpath='{.spec.ports[0].nodePort}' 2>/dev/null || echo "31000")
+    local backend_port=$(kubectl get svc backend-service -n career-coach-prod -o jsonpath='{.spec.ports[0].nodePort}' 2>/dev/null || echo "31001")
+    local ai_service_port=$(kubectl get svc ai-service -n career-coach-prod -o jsonpath='{.spec.ports[0].nodePort}' 2>/dev/null || echo "31002")
     local grafana_port=$(kubectl get svc grafana-service -n career-coach-prod -o jsonpath='{.spec.ports[0].nodePort}' 2>/dev/null || echo "3200")
     local argocd_port="18082"
     

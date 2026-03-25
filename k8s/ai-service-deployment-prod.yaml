@@ -87,5 +87,5 @@ spec:
   ports:
   - port: 5100
     targetPort: 5100
-    nodePort: 5100
+    nodePort: 31002
   type: NodePort
