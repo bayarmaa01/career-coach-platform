@@ -19,14 +19,14 @@ spec:
     spec:
       containers:
       - name: backend
-        image: node:18-alpine
+        image: career-coach-backend:latest
         ports:
-        - containerPort: 80
+        - containerPort: 4100
         env:
         - name: NODE_ENV
           value: "production"
         - name: PORT
-          value: "80"
+          value: "4100"
         - name: DATABASE_HOST
           value: "postgres-service"
         - name: DATABASE_PORT
@@ -39,12 +39,12 @@ spec:
         - name: DATABASE_USER
           valueFrom:
             secretKeyRef:
-              name: app-secrets
+              name: app-secrets-prod
               key: POSTGRES_USER
         - name: DATABASE_PASSWORD
           valueFrom:
             secretKeyRef:
-              name: app-secrets
+              name: app-secrets-prod
               key: POSTGRES_PASSWORD
         - name: REDIS_HOST
           value: "redis-service"
@@ -53,14 +53,14 @@ spec:
         - name: REDIS_PASSWORD
           valueFrom:
             secretKeyRef:
-              name: app-secrets
+              name: app-secrets-prod
               key: REDIS_PASSWORD
         - name: AI_SERVICE_URL
-          value: "http://ai-service:80"
+          value: "http://ai-service:5100"
         - name: JWT_SECRET
           valueFrom:
             secretKeyRef:
-              name: app-secrets
+              name: app-secrets-prod
               key: JWT_SECRET
         - name: JWT_EXPIRES_IN
           valueFrom:
@@ -100,13 +100,13 @@ spec:
         livenessProbe:
           httpGet:
             path: /api/health
-            port: 5000
+            port: 4100
           initialDelaySeconds: 30
           periodSeconds: 10
         readinessProbe:
           httpGet:
             path: /api/health
-            port: 5000
+            port: 4100
           initialDelaySeconds: 5
           periodSeconds: 5
       volumes:
@@ -126,6 +126,7 @@ spec:
   selector:
     app: backend-prod
   ports:
-  - port: 80
-    targetPort: 80
-  type: ClusterIP
+  - port: 4100
+    targetPort: 4100
+    nodePort: 4100
+  type: NodePort

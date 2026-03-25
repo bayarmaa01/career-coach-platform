@@ -19,9 +19,9 @@ spec:
     spec:
       containers:
       - name: ai-service
-        image: python:3.11-slim
+        image: career-coach-ai-service:latest
         ports:
-        - containerPort: 80
+        - containerPort: 5100
         env:
         - name: PYTHONPATH
           value: "/app"
@@ -32,7 +32,7 @@ spec:
         - name: REDIS_PASSWORD
           valueFrom:
             secretKeyRef:
-              name: app-secrets
+              name: app-secrets-prod
               key: REDIS_PASSWORD
         - name: MODEL_CACHE_DIR
           value: "/app/models"
@@ -56,13 +56,13 @@ spec:
         livenessProbe:
           httpGet:
             path: /ai/health
-            port: 80
+            port: 5100
           initialDelaySeconds: 60
           periodSeconds: 30
         readinessProbe:
           httpGet:
             path: /ai/health
-            port: 80
+            port: 5100
           initialDelaySeconds: 30
           periodSeconds: 10
       volumes:
@@ -85,6 +85,7 @@ spec:
   selector:
     app: ai-service-prod
   ports:
-  - port: 80
-    targetPort: 80
-  type: ClusterIP
+  - port: 5100
+    targetPort: 5100
+    nodePort: 5100
+  type: NodePort
