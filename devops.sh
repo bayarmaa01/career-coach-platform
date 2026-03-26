@@ -324,6 +324,30 @@ EOF
 deploy_application() {
     print_step "Deploying application services..."
     
+    # Configure Docker to use Minikube daemon and build images
+    print_info "Building Docker images inside Minikube..."
+    eval $(minikube docker-env)
+    
+    # Build backend image
+    print_info "Building backend image..."
+    cd backend
+    docker build -t backend-prod:latest .
+    cd ..
+    
+    # Build frontend image
+    print_info "Building frontend image..."
+    cd frontend
+    docker build -t frontend-prod:latest .
+    cd ..
+    
+    # Build ai-service image
+    print_info "Building AI service image..."
+    cd ai-service
+    docker build -t ai-service-prod:latest .
+    cd ..
+    
+    print_success "Docker images built successfully"
+    
     # Create PVCs for application
     $KUBECTL apply -f - <<EOF
 apiVersion: v1
@@ -370,6 +394,7 @@ data:
 EOF
     
     # Deploy Backend
+    # Note: imagePullPolicy: Never ensures Kubernetes uses local Minikube images
     $KUBECTL apply -f - <<EOF
 apiVersion: apps/v1
 kind: Deployment
@@ -388,7 +413,8 @@ spec:
     spec:
       containers:
       - name: backend
-        image: career-coach-backend:latest
+        image: backend-prod:latest
+        imagePullPolicy: Never
         ports:
         - containerPort: 4100
         env:
@@ -498,6 +524,7 @@ spec:
 EOF
     
     # Deploy AI Service
+    # Note: imagePullPolicy: Never ensures Kubernetes uses local Minikube images
     $KUBECTL apply -f - <<EOF
 apiVersion: apps/v1
 kind: Deployment
@@ -516,7 +543,8 @@ spec:
     spec:
       containers:
       - name: ai-service
-        image: career-coach-ai-service:latest
+        image: ai-service-prod:latest
+        imagePullPolicy: Never
         ports:
         - containerPort: 5100
         env:
@@ -585,6 +613,7 @@ spec:
 EOF
     
     # Deploy Frontend
+    # Note: imagePullPolicy: Never ensures Kubernetes uses local Minikube images
     $KUBECTL apply -f - <<EOF
 apiVersion: apps/v1
 kind: Deployment
@@ -603,7 +632,8 @@ spec:
     spec:
       containers:
       - name: frontend
-        image: career-coach-frontend:latest
+        image: frontend-prod:latest
+        imagePullPolicy: Never
         ports:
         - containerPort: 3100
         env:
