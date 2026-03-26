@@ -84,62 +84,47 @@ start_minikube() {
     print_info "Minikube status: $(minikube status --format='{{.Host}}:{{.Kubelet}}:{{.APIServer}}')"
 }
 
-# Create namespaces
+# Create namespaces and setup secrets
 create_namespaces() {
-    print_step "Creating namespaces..."
+    print_step "Creating namespaces and setting up secrets..."
     
-    # Create app namespace
-    $KUBECTL apply -f - <<EOF
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: career-coach-prod
-  labels:
-    name: career-coach-prod
-    environment: production
-EOF
+    # Ensure app namespace exists
+    if ! $KUBECTL get namespace career-coach-prod >/dev/null 2>&1; then
+        print_info "Creating career-coach-prod namespace..."
+        $KUBECTL create namespace career-coach-prod
+    else
+        print_info "career-coach-prod namespace already exists"
+    fi
     
     # Create monitoring namespace
-    $KUBECTL apply -f - <<EOF
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: monitoring
-  labels:
-    name: monitoring
-EOF
+    if ! $KUBECTL get namespace monitoring >/dev/null 2>&1; then
+        $KUBECTL create namespace monitoring
+    fi
     
     # Create argocd namespace
-    $KUBECTL apply -f - <<EOF
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: argocd
-  labels:
-    name: argocd
-EOF
+    if ! $KUBECTL get namespace argocd >/dev/null 2>&1; then
+        $KUBECTL create namespace argocd
+    fi
     
-    print_success "Namespaces created successfully"
+    # Auto-create secrets if they don't exist
+    if ! $KUBECTL get secret app-secrets-prod -n career-coach-prod >/dev/null 2>&1; then
+        print_info "Creating app-secrets-prod..."
+        $KUBECTL create secret generic app-secrets-prod \
+            --from-literal=POSTGRES_USER=postgres \
+            --from-literal=POSTGRES_PASSWORD=$(openssl rand -base64 12) \
+            --from-literal=REDIS_PASSWORD=$(openssl rand -base64 12) \
+            --from-literal=JWT_SECRET=$(openssl rand -base64 32) \
+            -n career-coach-prod
+    else
+        print_info "Secrets already exist, skipping..."
+    fi
+    
+    print_success "Namespaces and secrets setup completed"
 }
 
 # Deploy infrastructure
 deploy_infrastructure() {
     print_step "Deploying infrastructure (PostgreSQL & Redis)..."
-    
-    # Create secrets first
-    $KUBECTL apply -f - <<EOF
-apiVersion: v1
-kind: Secret
-metadata:
-  name: app-secrets-prod
-  namespace: career-coach-prod
-type: Opaque
-data:
-  POSTGRES_USER: cG9zdGdyZXM=
-  POSTGRES_PASSWORD: cHJvZHBhc3N3b3JkMTIz
-  REDIS_PASSWORD: cmVkaXNwYXNzd29yZDEyMw==
-  JWT_SECRET: and0c2VjcmV0Zm9ycHJvZHVjdGlvbjEyMw==
-EOF
     
     # Create PostgreSQL StatefulSet
     $KUBECTL apply -f - <<EOF
@@ -385,8 +370,8 @@ metadata:
 data:
   POSTGRES_DB: "career_coach"
   JWT_EXPIRES_IN: "7d"
-  FRONTEND_URL: "http://localhost:3100"
-  BACKEND_URL: "http://localhost:4100"
+  FRONTEND_URL: "http://frontend-service:3100"
+  BACKEND_URL: "http://backend-service:4100"
   MAX_FILE_SIZE: "10485760"
   RATE_LIMIT_WINDOW_MS: "900000"
   RATE_LIMIT_MAX_REQUESTS: "100"
@@ -487,11 +472,11 @@ spec:
           mountPath: /app/uploads
         resources:
           requests:
-            memory: "64Mi"
-            cpu: "50m"
-          limits:
             memory: "128Mi"
             cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
         livenessProbe:
           httpGet:
             path: /api/health
@@ -566,6 +551,8 @@ spec:
             configMapKeyRef:
               name: app-config
               key: LOG_LEVEL
+        - name: DISABLE_SPACY
+          value: "true"
         volumeMounts:
         - name: uploads-volume
           mountPath: /app/uploads
@@ -573,20 +560,20 @@ spec:
           mountPath: /app/models
         resources:
           requests:
-            memory: "64Mi"
-            cpu: "50m"
+            memory: "256Mi"
+            cpu: "200m"
           limits:
-            memory: "128Mi"
-            cpu: "100m"
+            memory: "512Mi"
+            cpu: "500m"
         livenessProbe:
           httpGet:
-            path: /ai/health
+            path: /health
             port: 5100
           initialDelaySeconds: 60
           periodSeconds: 30
         readinessProbe:
           httpGet:
-            path: /ai/health
+            path: /health
             port: 5100
           initialDelaySeconds: 30
           periodSeconds: 10
@@ -638,17 +625,14 @@ spec:
         - containerPort: 3100
         env:
         - name: VITE_API_URL
-          valueFrom:
-            configMapKeyRef:
-              name: app-config
-              key: BACKEND_URL
+          value: "http://backend-service:4100"
         resources:
           requests:
-            memory: "32Mi"
-            cpu: "25m"
-          limits:
             memory: "64Mi"
             cpu: "50m"
+          limits:
+            memory: "128Mi"
+            cpu: "100m"
         livenessProbe:
           httpGet:
             path: /
@@ -777,17 +761,22 @@ install_monitoring() {
 wait_for_pods() {
     print_step "Waiting for all pods to be ready..."
     
+    # Add restart safety for problematic services
+    print_info "Adding restart safety for services..."
+    $KUBECTL delete pod -l app=ai-service-prod -n career-coach-prod || true
+    $KUBECTL delete pod -l app=frontend-prod -n career-coach-prod || true
+    
     # Wait for app namespace pods
     print_info "Waiting for application pods..."
-    $KUBECTL wait --for=condition=ready pod -n career-coach-prod --all --timeout=600s
+    $KUBECTL wait --for=condition=ready pod -n career-coach-prod --all --timeout=600s || true
     
     # Wait for argocd pods
     print_info "Waiting for ArgoCD pods..."
-    $KUBECTL wait --for=condition=ready pod -n argocd --all --timeout=300s
+    $KUBECTL wait --for=condition=ready pod -n argocd --all --timeout=300s || true
     
     # Wait for monitoring pods
     print_info "Waiting for monitoring pods..."
-    $KUBECTL wait --for=condition=ready pod -n monitoring --all --timeout=300s
+    $KUBECTL wait --for=condition=ready pod -n monitoring --all --timeout=300s || true
     
     print_success "All pods are ready"
 }

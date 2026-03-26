@@ -21,9 +21,46 @@ if ! minikube status | grep -q "Running"; then
     minikube start --driver=docker --cpus=4 --memory=4096
 fi
 
-# Create namespace if it doesn't exist
-echo -e "${BLUE}Creating namespace...${NC}"
-$KUBECTL create namespace career-coach-prod --ignore-not-found=true
+# Ensure namespace exists
+if ! $KUBECTL get namespace career-coach-prod >/dev/null 2>&1; then
+    echo -e "${BLUE}Creating career-coach-prod namespace...${NC}"
+    $KUBECTL create namespace career-coach-prod
+fi
+
+# Auto-create secrets if they don't exist
+if ! $KUBECTL get secret app-secrets-prod -n career-coach-prod >/dev/null 2>&1; then
+    echo -e "${BLUE}Creating app-secrets-prod...${NC}"
+    $KUBECTL create secret generic app-secrets-prod \
+        --from-literal=POSTGRES_USER=postgres \
+        --from-literal=POSTGRES_PASSWORD=$(openssl rand -base64 12) \
+        --from-literal=REDIS_PASSWORD=$(openssl rand -base64 12) \
+        --from-literal=JWT_SECRET=$(openssl rand -base64 32) \
+        -n career-coach-prod
+else
+    echo -e "${BLUE}Secrets already exist, skipping...${NC}"
+fi
+
+# Configure Docker to use Minikube daemon and build images
+echo -e "${BLUE}Building Docker images inside Minikube...${NC}"
+eval $(minikube docker-env)
+
+# Build backend image
+echo -e "${BLUE}Building backend image...${NC}"
+cd backend
+docker build -t backend-prod:latest .
+cd ..
+
+# Build frontend image
+echo -e "${BLUE}Building frontend image...${NC}"
+cd frontend
+docker build -t frontend-prod:latest .
+cd ..
+
+# Build ai-service image
+echo -e "${BLUE}Building AI service image...${NC}"
+cd ai-service
+docker build -t ai-service-prod:latest .
+cd ..
 
 # Apply configs in order
 echo -e "${BLUE}Applying Kubernetes configurations...${NC}"
