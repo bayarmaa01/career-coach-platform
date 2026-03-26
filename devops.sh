@@ -653,14 +653,8 @@ EOF
 install_argocd() {
     print_step "Installing ArgoCD..."
     
-    # Clean up any existing ArgoCD installation
+    # Clean up any existing ArgoCD installation completely
     print_info "Cleaning up existing ArgoCD installation..."
-    
-    # Uninstall existing Helm release if it exists
-    if helm list -n argocd | grep -q "argocd"; then
-        print_info "Uninstalling existing ArgoCD Helm release..."
-        helm uninstall argocd -n argocd || true
-    fi
     
     # Delete argocd namespace safely
     print_info "Deleting argocd namespace..."
@@ -673,15 +667,36 @@ install_argocd() {
         print_info "Still waiting for namespace deletion..."
     done
     
-    # Clean up any remaining CRDs
-    print_info "Cleaning up ArgoCD CRDs..."
-    $KUBECTL delete crd applications.argoproj.io --ignore-not-found=true || true
-    $KUBECTL delete crd appprojects.argoproj.io --ignore-not-found=true || true
-    $KUBECTL delete crd applicationsets.argoproj.io --ignore-not-found=true || true
-    $KUBECTL delete crd argocdextensions.argoproj.io --ignore-not-found=true || true
+    # Clean up all ClusterRoles containing "argocd"
+    print_info "Cleaning ArgoCD ClusterRoles..."
+    for cr in $($KUBECTL get clusterroles --no-headers -o custom-columns=NAME:.metadata.name | grep argocd || true); do
+        print_info "Deleting ClusterRole: $cr"
+        $KUBECTL delete clusterrole $cr --ignore-not-found=true || true
+    done
     
-    # Wait for CRDs to be fully deleted
-    sleep 5
+    # Clean up all ClusterRoleBindings containing "argocd"
+    print_info "Cleaning ArgoCD ClusterRoleBindings..."
+    for crb in $($KUBECTL get clusterrolebindings --no-headers -o custom-columns=NAME:.metadata.name | grep argocd || true); do
+        print_info "Deleting ClusterRoleBinding: $crb"
+        $KUBECTL delete clusterrolebinding $crb --ignore-not-found=true || true
+    done
+    
+    # Clean up all CRDs containing "argocd"
+    print_info "Cleaning ArgoCD CRDs..."
+    for crd in $($KUBECTL get crd --no-headers -o custom-columns=NAME:.metadata.name | grep argocd || true); do
+        print_info "Deleting CRD: $crd"
+        $KUBECTL delete crd $crd --ignore-not-found=true || true
+    done
+    
+    # Wait for all resources to be fully deleted
+    print_info "Waiting for resources cleanup to complete..."
+    sleep 10
+    
+    # Uninstall existing Helm release if it exists
+    if helm list -n argocd --no-headers | grep -q "argocd" 2>/dev/null || false; then
+        print_info "Uninstalling existing ArgoCD Helm release..."
+        helm uninstall argocd -n argocd || true
+    fi
     
     # Install ArgoCD using Helm
     print_info "Installing ArgoCD using Helm..."
