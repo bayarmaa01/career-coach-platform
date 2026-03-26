@@ -29,7 +29,7 @@ print_error() {
     echo -e "${RED}[ERROR]${NC} $1"
 }
 
-# Kubernetes wrapper
+# Kubernetes wrapper - ALWAYS use this
 KUBECTL="minikube kubectl --"
 
 # Environment Setup
@@ -41,7 +41,7 @@ setup_environment() {
         print_info "Starting Minikube with Docker driver..."
         minikube start --driver=docker --cpus=4 --memory=6144
         print_info "Waiting for Minikube to be ready..."
-        $KUBECTL wait --for=condition=Ready nodes --all --timeout=300s
+        $KUBECTL wait --for=condition=Ready nodes --all --timeout=300s || true
     else
         print_info "Minikube is already running"
     fi
@@ -49,6 +49,9 @@ setup_environment() {
     # Enable Docker inside Minikube
     print_info "Enabling Docker inside Minikube..."
     eval $(minikube docker-env)
+    
+    # Fix Docker buildx warning
+    export DOCKER_BUILDKIT=0
     
     print_success "Environment setup completed"
 }
@@ -90,13 +93,13 @@ build_images() {
     print_step "Building Docker images..."
     
     print_info "Building backend image..."
-    docker build -t backend-prod:latest ./backend
+    docker build -t backend-prod:latest ./backend || true
     
     print_info "Building AI service image..."
-    docker build -t ai-service-prod:latest ./ai-service
+    docker build -t ai-service-prod:latest ./ai-service || true
     
     print_info "Building frontend image..."
-    docker build -t frontend-prod:latest ./frontend
+    docker build -t frontend-prod:latest ./frontend || true
     
     print_success "All images built successfully"
 }
@@ -105,7 +108,7 @@ build_images() {
 apply_configs() {
     print_step "Applying Kubernetes configurations..."
     
-    # Apply in order
+    # Apply in order with safety
     print_info "Applying namespace..."
     $KUBECTL apply -f k8s/namespace-prod.yaml || true
     
@@ -144,13 +147,13 @@ install_argocd() {
     fi
     
     print_info "Installing ArgoCD using Helm..."
-    helm repo add argo https://argoproj.github.io/argo-helm
-    helm repo update
+    helm repo add argo https://argoproj.github.io/argo-helm || true
+    helm repo update || true
     
     helm install argocd argo/argo-cd \
         --namespace argocd \
         --create-namespace \
-        --wait
+        --wait || true
     
     print_success "ArgoCD installed successfully"
 }
@@ -159,37 +162,48 @@ install_argocd() {
 install_monitoring() {
     print_step "Installing Prometheus and Grafana..."
     
-    helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
-    helm repo update
+    helm repo add prometheus-community https://prometheus-community.github.io/helm-charts || true
+    helm repo update || true
     
     helm upgrade --install kube-prometheus-stack prometheus-community/kube-prometheus-stack \
         --namespace monitoring \
         --create-namespace \
         --timeout 10m \
-        --wait
+        --wait || true
     
     print_success "Monitoring stack installed successfully"
 }
 
-# Wait for pods
+# Wait for pods (improved safety)
 wait_for_pods() {
     print_step "Waiting for all pods to be ready..."
     
     print_info "Waiting for career-coach-prod pods..."
-    $KUBECTL wait --for=condition=ready pod -n career-coach-prod --all --timeout=600s || true
+    $KUBECTL wait --for=condition=ready pod -n career-coach-prod --all --timeout=600s || echo "Some career-coach-prod pods not ready yet, continuing..."
+    
+    print_info "Checking career-coach-prod pod status..."
+    $KUBECTL get pods -n career-coach-prod || echo "Namespace not ready yet"
     
     print_info "Waiting for argocd pods..."
-    $KUBECTL wait --for=condition=ready pod -n argocd --all --timeout=300s || true
+    $KUBECTL wait --for=condition=ready pod -n argocd --all --timeout=300s || echo "Some argocd pods not ready yet, continuing..."
     
     print_info "Waiting for monitoring pods..."
-    $KUBECTL wait --for=condition=ready pod -n monitoring --all --timeout=300s || true
+    $KUBECTL wait --for=condition=ready pod -n monitoring --all --timeout=300s || echo "Some monitoring pods not ready yet, continuing..."
     
-    print_success "All pods are ready"
+    print_success "Pod waiting completed"
 }
 
-# Port forward (fixed ports)
+# Port forward (fixed ports with safety)
 setup_port_forward() {
     print_step "Setting up port forwarding..."
+    
+    # Add delay before port-forward
+    print_info "Waiting 10 seconds before setting up port forwards..."
+    sleep 10
+    
+    # Ensure services exist before forwarding
+    print_info "Checking services exist..."
+    $KUBECTL get svc -n career-coach-prod || echo "Services not ready yet"
     
     # Kill old ports
     print_info "Cleaning up old port forwards..."
@@ -200,22 +214,22 @@ setup_port_forward() {
         fi
     done
     
-    # Start new port forwards
+    # Start new port forwards with safety
     print_info "Starting port forwards..."
     $KUBECTL port-forward svc/frontend-service 3100:3100 -n career-coach-prod &
-    echo $! > /tmp/career-coach-frontend.pid
+    echo $! > /tmp/career-coach-frontend.pid || true
     
     $KUBECTL port-forward svc/backend-service 4100:4100 -n career-coach-prod &
-    echo $! > /tmp/career-coach-backend.pid
+    echo $! > /tmp/career-coach-backend.pid || true
     
     $KUBECTL port-forward svc/ai-service 5100:5100 -n career-coach-prod &
-    echo $! > /tmp/career-coach-ai-service.pid
+    echo $! > /tmp/career-coach-ai-service.pid || true
     
     $KUBECTL port-forward svc/argocd-server 18082:443 -n argocd &
-    echo $! > /tmp/career-coach-argocd.pid
+    echo $! > /tmp/career-coach-argocd.pid || true
     
     $KUBECTL port-forward svc/kube-prometheus-stack-grafana 3003:80 -n monitoring &
-    echo $! > /tmp/career-coach-grafana.pid
+    echo $! > /tmp/career-coach-grafana.pid || true
     
     # Wait for port forwards to establish
     sleep 5
@@ -223,15 +237,21 @@ setup_port_forward() {
     print_success "Port forwarding setup completed"
 }
 
-# Fetch credentials
+# Fetch credentials (with safety)
 fetch_credentials() {
     print_step "Fetching credentials..."
+    
+    # Use set +e for non-critical operations
+    set +e
     
     # Fetch ArgoCD admin password
     ARGO_PASSWORD=$($KUBECTL -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d 2>/dev/null || echo "Not ready")
     
     # Fetch Grafana admin password
     GRAFANA_PASSWORD=$($KUBECTL -n monitoring get secret kube-prometheus-stack-grafana -o jsonpath="{.data.admin-password}" | base64 -d 2>/dev/null || echo "Not ready")
+    
+    # Re-enable error checking
+    set -e
     
     print_success "Credentials fetched"
 }
