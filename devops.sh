@@ -681,9 +681,9 @@ install_argocd() {
         $KUBECTL delete clusterrolebinding $crb --ignore-not-found=true || true
     done
     
-    # Clean up all CRDs containing "argocd"
+    # Clean up all CRDs containing "argocd" or "argoproj"
     print_info "Cleaning ArgoCD CRDs..."
-    for crd in $($KUBECTL get crd --no-headers -o custom-columns=NAME:.metadata.name | grep argocd || true); do
+    for crd in $($KUBECTL get crd --no-headers -o custom-columns=NAME:.metadata.name | grep -E 'argocd|argoproj' || true); do
         print_info "Deleting CRD: $crd"
         $KUBECTL delete crd $crd --ignore-not-found=true || true
     done
