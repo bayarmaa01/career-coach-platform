@@ -5,113 +5,212 @@
 
 set -e
 
-# Colors
+# Color definitions
+RED='\033[0;31m'
 GREEN='\033[0;32m'
-BLUE='\033[0;34m'
 YELLOW='\033[1;33m'
-NC='\033[0m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
 
+# Helper functions
+print_step() {
+    echo -e "${BLUE}[STEP]${NC} $1"
+}
+
+print_success() {
+    echo -e "${GREEN}[SUCCESS]${NC} $1"
+}
+
+print_info() {
+    echo -e "${YELLOW}[INFO]${NC} $1"
+}
+
+print_error() {
+    echo -e "${RED}[ERROR]${NC} $1"
+}
+
+# Kubernetes wrapper
 KUBECTL="minikube kubectl --"
 
-echo -e "${GREEN}🚀 Starting Career Coach Platform...${NC}"
-
-# Start Minikube if not running
-if ! minikube status | grep -q "Running"; then
-    echo -e "${BLUE}Starting Minikube...${NC}"
-    minikube start --driver=docker --cpus=4 --memory=4096
-fi
+# Environment Setup
+setup_environment() {
+    print_step "Setting up environment..."
+    
+    # Ensure Minikube is running
+    if ! minikube status | grep -q "Running"; then
+        print_info "Starting Minikube with Docker driver..."
+        minikube start --driver=docker --cpus=4 --memory=6144
+        print_info "Waiting for Minikube to be ready..."
+        $KUBECTL wait --for=condition=Ready nodes --all --timeout=300s
+    else
+        print_info "Minikube is already running"
+    fi
+    
+    # Enable Docker inside Minikube
+    print_info "Enabling Docker inside Minikube..."
+    eval $(minikube docker-env)
+    
+    print_success "Environment setup completed"
+}
 
 # Ensure namespace exists
-if ! $KUBECTL get namespace career-coach-prod >/dev/null 2>&1; then
-    echo -e "${BLUE}Creating career-coach-prod namespace...${NC}"
-    $KUBECTL create namespace career-coach-prod
-fi
+ensure_namespace() {
+    print_step "Ensuring namespace exists..."
+    
+    if ! $KUBECTL get namespace career-coach-prod >/dev/null 2>&1; then
+        print_info "Creating career-coach-prod namespace..."
+        $KUBECTL create namespace career-coach-prod
+    else
+        print_info "career-coach-prod namespace already exists"
+    fi
+    
+    print_success "Namespace ensured"
+}
 
-# Auto-create secrets if they don't exist
-if ! $KUBECTL get secret app-secrets-prod -n career-coach-prod >/dev/null 2>&1; then
-    echo -e "${BLUE}Creating app-secrets-prod...${NC}"
-    $KUBECTL create secret generic app-secrets-prod \
-        --from-literal=POSTGRES_USER=postgres \
-        --from-literal=POSTGRES_PASSWORD=$(openssl rand -base64 12) \
-        --from-literal=REDIS_PASSWORD=$(openssl rand -base64 12) \
-        --from-literal=JWT_SECRET=$(openssl rand -base64 32) \
-        -n career-coach-prod
-else
-    echo -e "${BLUE}Secrets already exist, skipping...${NC}"
-fi
+# Auto create secrets (safe)
+create_secrets() {
+    print_step "Creating secrets..."
+    
+    if ! $KUBECTL get secret app-secrets-prod -n career-coach-prod >/dev/null 2>&1; then
+        print_info "Creating app-secrets-prod..."
+        $KUBECTL create secret generic app-secrets-prod \
+            --from-literal=POSTGRES_USER=postgres \
+            --from-literal=POSTGRES_PASSWORD=$(openssl rand -base64 12) \
+            --from-literal=REDIS_PASSWORD=$(openssl rand -base64 12) \
+            --from-literal=JWT_SECRET=$(openssl rand -base64 32) \
+            -n career-coach-prod
+        print_success "Secrets created"
+    else
+        print_info "Secrets already exist, skipping..."
+    fi
+}
 
-# Configure Docker to use Minikube daemon and build images
-echo -e "${BLUE}Building Docker images inside Minikube...${NC}"
-eval $(minikube docker-env)
+# Build Docker images (local)
+build_images() {
+    print_step "Building Docker images..."
+    
+    print_info "Building backend image..."
+    docker build -t backend-prod:latest ./backend
+    
+    print_info "Building AI service image..."
+    docker build -t ai-service-prod:latest ./ai-service
+    
+    print_info "Building frontend image..."
+    docker build -t frontend-prod:latest ./frontend
+    
+    print_success "All images built successfully"
+}
 
-# Build backend image
-echo -e "${BLUE}Building backend image...${NC}"
-cd backend
-docker build -t backend-prod:latest .
-cd ..
-
-# Build frontend image
-echo -e "${BLUE}Building frontend image...${NC}"
-cd frontend
-docker build -t frontend-prod:latest .
-cd ..
-
-# Build ai-service image
-echo -e "${BLUE}Building AI service image...${NC}"
-cd ai-service
-docker build -t ai-service-prod:latest .
-cd ..
-
-# Apply configs in order
-echo -e "${BLUE}Applying Kubernetes configurations...${NC}"
-$KUBECTL apply -f k8s/secrets-prod.yaml || true
-$KUBECTL apply -f k8s/configmap.yaml || true
-$KUBECTL apply -f k8s/persistent-volume.yaml || true
-$KUBECTL apply -f k8s/postgres-statefulset.yaml || true
-$KUBECTL apply -f k8s/redis-deployment-prod.yaml || true
-$KUBECTL apply -f k8s/backend-deployment-prod.yaml || true
-$KUBECTL apply -f k8s/ai-service-deployment-prod.yaml || true
-$KUBECTL apply -f k8s/frontend-deployment-prod.yaml || true
+# Apply Kubernetes configs
+apply_configs() {
+    print_step "Applying Kubernetes configurations..."
+    
+    # Apply in order
+    print_info "Applying namespace..."
+    $KUBECTL apply -f k8s/namespace-prod.yaml || true
+    
+    print_info "Applying secrets..."
+    $KUBECTL apply -f k8s/secrets-prod.yaml || true
+    
+    print_info "Applying configmap..."
+    $KUBECTL apply -f k8s/configmap.yaml || true
+    
+    print_info "Applying PostgreSQL..."
+    $KUBECTL apply -f k8s/postgres-statefulset.yaml || true
+    
+    print_info "Applying Redis..."
+    $KUBECTL apply -f k8s/redis-deployment-prod.yaml || true
+    
+    print_info "Applying backend..."
+    $KUBECTL apply -f k8s/backend-deployment-prod.yaml || true
+    
+    print_info "Applying AI service..."
+    $KUBECTL apply -f k8s/ai-service-deployment-prod.yaml || true
+    
+    print_info "Applying frontend..."
+    $KUBECTL apply -f k8s/frontend-deployment-prod.yaml || true
+    
+    print_success "Kubernetes configurations applied"
+}
 
 # Wait for pods
-echo -e "${BLUE}Waiting for pods to be ready...${NC}"
-$KUBECTL wait --for=condition=ready pod -n career-coach-prod --all --timeout=300s || true
+wait_for_pods() {
+    print_step "Waiting for all pods to be ready..."
+    
+    print_info "Waiting for career-coach-prod pods..."
+    $KUBECTL wait --for=condition=ready pod -n career-coach-prod --all --timeout=300s || true
+    
+    print_success "All pods are ready"
+}
 
-# Kill old port-forwards
-echo -e "${BLUE}Cleaning up old port-forwards...${NC}"
-for port in 3100 4100 5100; do
-    pid=$(lsof -ti:$port 2>/dev/null || true)
-    if [ ! -z "$pid" ]; then
-        kill -9 $pid 2>/dev/null || true
-        echo "Killed process on port $port"
-    fi
-done
+# Port forward (fixed ports)
+setup_port_forward() {
+    print_step "Setting up port forwarding..."
+    
+    # Kill old ports
+    print_info "Cleaning up old port forwards..."
+    for port in 3100 4100 5100; do
+        pid=$(lsof -ti:$port 2>/dev/null || true)
+        if [ ! -z "$pid" ]; then
+            kill -9 $pid 2>/dev/null || true
+        fi
+    done
+    
+    # Start new port forwards
+    print_info "Starting port forwards..."
+    $KUBECTL port-forward svc/frontend-service 3100:3100 -n career-coach-prod &
+    echo $! > /tmp/career-coach-frontend.pid
+    
+    $KUBECTL port-forward svc/backend-service 4100:4100 -n career-coach-prod &
+    echo $! > /tmp/career-coach-backend.pid
+    
+    $KUBECTL port-forward svc/ai-service 5100:5100 -n career-coach-prod &
+    echo $! > /tmp/career-coach-ai-service.pid
+    
+    # Wait for port forwards to establish
+    sleep 3
+    
+    print_success "Port forwarding setup completed"
+}
 
-# Start port-forward
-echo -e "${BLUE}Starting port-forward...${NC}"
-$KUBECTL port-forward -n career-coach-prod service/frontend-service 3100:3100 &
-FRONTEND_PID=$!
-$KUBECTL port-forward -n career-coach-prod service/backend-service 4100:4100 &
-BACKEND_PID=$!
-$KUBECTL port-forward -n career-coach-prod service/ai-service 5100:5100 &
-AI_PID=$!
+# Final output
+print_final_output() {
+    echo ""
+    echo -e "${GREEN}========================================${NC}"
+    echo -e "${GREEN}🚀 Career Coach Platform is running!${NC}"
+    echo -e "${GREEN}========================================${NC}"
+    echo ""
+    echo -e "${BLUE}🌐 Application URLs:${NC}"
+    echo -e "${YELLOW}Frontend:${NC}   http://localhost:3100"
+    echo -e "${YELLOW}Backend:${NC}    http://localhost:4100"
+    echo -e "${YELLOW}AI Service:${NC} http://localhost:5100"
+    echo ""
+    echo -e "${GREEN}========================================${NC}"
+    echo ""
+    echo -e "${BLUE}📋 Useful Commands:${NC}"
+    echo -e "  • View pods:     ${YELLOW}minikube kubectl -- get pods -n career-coach-prod${NC}"
+    echo -e "  • View logs:     ${YELLOW}minikube kubectl -- logs -n career-coach-prod deployment/backend-prod${NC}"
+    echo -e "  • Stop services: ${YELLOW}kill \$(cat /tmp/career-coach-*.pid)${NC}"
+    echo -e "  • Minikube dashboard: ${YELLOW}minikube dashboard${NC}"
+    echo ""
+}
 
-# Save PIDs for cleanup
-echo $FRONTEND_PID > /tmp/career-coach-frontend.pid
-echo $BACKEND_PID > /tmp/career-coach-backend.pid
-echo $AI_PID > /tmp/career-coach-ai-service.pid
+# Main execution
+main() {
+    echo -e "${GREEN}🚀 Starting Career Coach Platform...${NC}"
+    echo ""
+    
+    setup_environment
+    ensure_namespace
+    create_secrets
+    build_images
+    apply_configs
+    wait_for_pods
+    setup_port_forward
+    print_final_output
+    
+    echo -e "${GREEN}🎯 Quick deployment completed successfully!${NC}"
+}
 
-# Wait a moment for port-forwards to establish
-sleep 3
-
-echo ""
-echo -e "${GREEN}✅ Career Coach Platform is running!${NC}"
-echo -e "${YELLOW}Frontend:${NC}  http://localhost:3100"
-echo -e "${YELLOW}Backend:${NC}   http://localhost:4100"
-echo -e "${YELLOW}AI Service:${NC} http://localhost:5100"
-echo ""
-echo -e "${BLUE}📋 Useful commands:${NC}"
-echo -e "  • View pods:     ${YELLOW}minikube kubectl -- get pods -n career-coach-prod${NC}"
-echo -e "  • View logs:     ${YELLOW}minikube kubectl -- logs -n career-coach-prod deployment/backend-prod${NC}"
-echo -e "  • Stop services: ${YELLOW}kill \$(cat /tmp/career-coach-*.pid)${NC}"
-echo ""
+# Run main function
+main "$@"
