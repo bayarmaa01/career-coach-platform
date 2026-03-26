@@ -22,7 +22,7 @@ spec:
         image: backend-prod:latest
         imagePullPolicy: Never
         ports:
-        - containerPort: 4100
+        - containerPort: 5000
         env:
         - name: NODE_ENV
           value: "production"
@@ -128,6 +128,6 @@ spec:
     app: backend-prod
   ports:
   - port: 4100
-    targetPort: 4100
+    targetPort: 5000
     nodePort: 31001
   type: NodePort

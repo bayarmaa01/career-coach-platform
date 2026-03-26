@@ -22,7 +22,7 @@ spec:
         image: frontend-prod:latest
         imagePullPolicy: Never
         ports:
-        - containerPort: 3100
+        - containerPort: 80
         env:
         - name: VITE_API_URL
           valueFrom:
@@ -62,6 +62,6 @@ spec:
     app: frontend-prod
   ports:
   - port: 3100
-    targetPort: 3100
+    targetPort: 80
     nodePort: 31000
   type: NodePort
