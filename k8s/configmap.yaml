@@ -6,8 +6,8 @@ metadata:
 data:
   POSTGRES_DB: "career_coach_prod"
   JWT_EXPIRES_IN: "7d"
-  FRONTEND_URL: "https://career-coach.example.com"
-  BACKEND_URL: "https://api.career-coach.example.com"
+  FRONTEND_URL: "http://frontend-service:3100"
+  BACKEND_URL: "http://backend-service:4100"
   MAX_FILE_SIZE: "10485760"
   RATE_LIMIT_WINDOW_MS: "900000"
   RATE_LIMIT_MAX_REQUESTS: "100"

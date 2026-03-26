@@ -19,7 +19,8 @@ spec:
     spec:
       containers:
       - name: frontend
-        image: career-coach-frontend:latest
+        image: frontend-prod:latest
+        imagePullPolicy: Never
         ports:
         - containerPort: 3100
         env:

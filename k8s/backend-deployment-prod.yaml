@@ -19,7 +19,8 @@ spec:
     spec:
       containers:
       - name: backend
-        image: career-coach-backend:latest
+        image: backend-prod:latest
+        imagePullPolicy: Never
         ports:
         - containerPort: 4100
         env:
