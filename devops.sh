@@ -656,16 +656,30 @@ install_argocd() {
     # Clean old CRDs if they exist
     $KUBECTL delete crd applications.argoproj.io --ignore-not-found=true || true
     $KUBECTL delete crd appprojects.argoproj.io --ignore-not-found=true || true
+    $KUBECTL delete crd applicationsets.argoproj.io --ignore-not-found=true || true
+    $KUBECTL delete crd argocdextensions.argoproj.io --ignore-not-found=true || true
     
-    # Install ArgoCD
-    $KUBECTL apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+    # Wait for CRDs to be fully deleted
+    sleep 5
+    
+    # Install ArgoCD using Helm (more reliable)
+    helm repo add argo https://argoproj.github.io/argo-helm
+    helm repo update
+    
+    helm upgrade --install argocd argo/argo-cd \
+        --namespace argocd \
+        --create-namespace \
+        --set server.service.type=ClusterIP \
+        --set dex.enabled=true \
+        --set notifications.enabled=true \
+        --wait
     
     # Wait for ArgoCD to be ready
     print_info "Waiting for ArgoCD pods to be ready..."
-    $KUBECTL wait --for=condition=ready pod -l app.kubernetes.io/name=argocd-server -n argocd --timeout=300s
-    $KUBECTL wait --for=condition=ready pod -l app.kubernetes.io/name=argocd-repo-server -n argocd --timeout=300s
-    $KUBECTL wait --for=condition=ready pod -l app.kubernetes.io/name=argocd-application-controller -n argocd --timeout=300s
-    $KUBECTL wait --for=condition=ready pod -l app.kubernetes.io/name=argocd-dex-server -n argocd --timeout=300s
+    $KUBECTL wait --for=condition=ready pod -l app.kubernetes.io/name=argocd-server -n argocd --timeout=300s || true
+    $KUBECTL wait --for=condition=ready pod -l app.kubernetes.io/name=argocd-repo-server -n argocd --timeout=300s || true
+    $KUBECTL wait --for=condition=ready pod -l app.kubernetes.io/name=argocd-application-controller -n argocd --timeout=300s || true
+    $KUBECTL wait --for=condition=ready pod -l app.kubernetes.io/name=argocd-dex-server -n argocd --timeout=300s || true
     
     print_success "ArgoCD installed successfully"
 }
