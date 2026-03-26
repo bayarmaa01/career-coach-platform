@@ -653,7 +653,28 @@ EOF
 install_argocd() {
     print_step "Installing ArgoCD..."
     
-    # Clean old CRDs if they exist
+    # Clean up any existing ArgoCD installation
+    print_info "Cleaning up existing ArgoCD installation..."
+    
+    # Uninstall existing Helm release if it exists
+    if helm list -n argocd | grep -q "argocd"; then
+        print_info "Uninstalling existing ArgoCD Helm release..."
+        helm uninstall argocd -n argocd || true
+    fi
+    
+    # Delete argocd namespace safely
+    print_info "Deleting argocd namespace..."
+    $KUBECTL delete namespace argocd --ignore-not-found=true
+    
+    # Wait until namespace is fully deleted
+    print_info "Waiting for argocd namespace to be fully deleted..."
+    while $KUBECTL get namespace argocd --ignore-not-found=true | grep -q "argocd"; do
+        sleep 2
+        print_info "Still waiting for namespace deletion..."
+    done
+    
+    # Clean up any remaining CRDs
+    print_info "Cleaning up ArgoCD CRDs..."
     $KUBECTL delete crd applications.argoproj.io --ignore-not-found=true || true
     $KUBECTL delete crd appprojects.argoproj.io --ignore-not-found=true || true
     $KUBECTL delete crd applicationsets.argoproj.io --ignore-not-found=true || true
@@ -662,7 +683,8 @@ install_argocd() {
     # Wait for CRDs to be fully deleted
     sleep 5
     
-    # Install ArgoCD using Helm (more reliable)
+    # Install ArgoCD using Helm
+    print_info "Installing ArgoCD using Helm..."
     helm repo add argo https://argoproj.github.io/argo-helm
     helm repo update
     
