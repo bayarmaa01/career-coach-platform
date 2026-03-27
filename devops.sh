@@ -162,20 +162,11 @@ install_argocd() {
     print_success "ArgoCD installed successfully"
 }
 
-# Install Prometheus + Grafana
+# Install Prometheus + Grafana (DISABLED for low memory)
 install_monitoring() {
-    print_step "Installing Prometheus and Grafana..."
-    
-    helm repo add prometheus-community https://prometheus-community.github.io/helm-charts || true
-    helm repo update || true
-    
-    helm upgrade --install kube-prometheus-stack prometheus-community/kube-prometheus-stack \
-        --namespace monitoring \
-        --create-namespace \
-        --timeout 10m \
-        --wait || true
-    
-    print_success "Monitoring stack installed successfully"
+    print_step "Monitoring disabled for low-memory environment..."
+    print_info "Skipping Prometheus and Grafana installation"
+    print_info "Use ./devops.sh --with-monitoring to enable monitoring"
 }
 
 # Wait for pods (improved safety)
@@ -190,9 +181,6 @@ wait_for_pods() {
     
     print_info "Waiting for argocd pods..."
     $KUBECTL wait --for=condition=ready pod -n argocd --all --timeout=300s || echo "Some argocd pods not ready yet, continuing..."
-    
-    print_info "Waiting for monitoring pods..."
-    $KUBECTL wait --for=condition=ready pod -n monitoring --all --timeout=300s || echo "Some monitoring pods not ready yet, continuing..."
     
     print_success "Pod waiting completed"
 }
@@ -211,7 +199,7 @@ setup_port_forward() {
     
     # Kill old ports
     print_info "Cleaning up old port forwards..."
-    for port in 3100 4100 5100 18082 3003; do
+    for port in 3100 4100 5100 18082; do
         pid=$(lsof -ti:$port 2>/dev/null || true)
         if [ ! -z "$pid" ]; then
             kill -9 $pid 2>/dev/null || true
@@ -239,9 +227,6 @@ setup_port_forward() {
     $KUBECTL port-forward svc/argocd-server 18082:443 -n argocd &
     echo $! > /tmp/career-coach-argocd.pid || true
     
-    $KUBECTL port-forward svc/kube-prometheus-stack-grafana 3003:80 -n monitoring &
-    echo $! > /tmp/career-coach-grafana.pid || true
-    
     # Wait for port forwards to establish
     sleep 5
     
@@ -257,9 +242,6 @@ fetch_credentials() {
     
     # Fetch ArgoCD admin password
     ARGO_PASSWORD=$($KUBECTL -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d 2>/dev/null || echo "Not ready")
-    
-    # Fetch Grafana admin password
-    GRAFANA_PASSWORD=$($KUBECTL -n monitoring get secret kube-prometheus-stack-grafana -o jsonpath="{.data.admin-password}" | base64 -d 2>/dev/null || echo "Not ready")
     
     # Re-enable error checking
     set -e
@@ -284,14 +266,10 @@ print_final_output() {
     echo -e "  ${BLUE}Username:${NC} admin"
     echo -e "  ${BLUE}Password:${NC} $ARGO_PASSWORD"
     echo ""
-    echo -e "${YELLOW}Grafana:${NC} http://localhost:3003"
-    echo -e "  ${BLUE}Username:${NC} admin"
-    echo -e "  ${BLUE}Password:${NC} $GRAFANA_PASSWORD"
-    echo ""
     echo -e "${GREEN}========================================${NC}"
     echo ""
     echo -e "${BLUE}📋 Useful Commands:${NC}"
-    echo -e "  • View pods:     ${YELLOW}minikube kubectl -- get pods --all-namespaces${NC}"
+    echo -e "  • View pods:     ${YELLOW}minikube kubectl -- get pods -n career-coach-prod${NC}"
     echo -e "  • Stop services: ${YELLOW}kill \$(cat /tmp/career-coach-*.pid)${NC}"
     echo -e "  • Minikube dashboard: ${YELLOW}minikube dashboard${NC}"
     echo ""
