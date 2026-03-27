@@ -220,6 +220,13 @@ setup_port_forward() {
     
     # Start new port forwards with safety
     print_info "Starting port forwards..."
+    
+    # Wait for services to be ready before port-forwarding
+    print_info "Waiting for services to be ready..."
+    $KUBECTL wait --for=condition=ready svc/frontend-service -n career-coach-prod --timeout=60s || true
+    $KUBECTL wait --for=condition=ready svc/backend-service -n career-coach-prod --timeout=60s || true
+    $KUBECTL wait --for=condition=ready svc/ai-service -n career-coach-prod --timeout=60s || true
+    
     $KUBECTL port-forward svc/frontend-service 3100:80 -n career-coach-prod &
     echo $! > /tmp/career-coach-frontend.pid || true
     
