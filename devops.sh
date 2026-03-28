@@ -177,15 +177,39 @@ apply_configs() {
     retry 3 $KUBECTL apply -f k8s/configmap.yaml
     
     print_info "Applying PostgreSQL..."
+    # Delete existing StatefulSet if it exists with PVC volumeClaimTemplate
+    if $KUBECTL get statefulset postgres -n career-coach-prod >/dev/null 2>&1; then
+        print_info "Deleting existing PostgreSQL StatefulSet to apply storage changes..."
+        $KUBECTL delete statefulset postgres -n career-coach-prod || true
+        sleep 5
+    fi
     retry 3 $KUBECTL apply -f k8s/postgres-statefulset.yaml
     
     print_info "Applying Redis..."
+    # Delete existing Redis deployment if it exists with PVC
+    if $KUBECTL get deployment redis-prod -n career-coach-prod >/dev/null 2>&1; then
+        print_info "Deleting existing Redis deployment to apply storage changes..."
+        $KUBECTL delete deployment redis-prod -n career-coach-prod || true
+        sleep 5
+    fi
     retry 3 $KUBECTL apply -f k8s/redis-deployment-prod.yaml
     
     print_info "Applying backend..."
+    # Delete existing backend deployment if it exists with PVC
+    if $KUBECTL get deployment backend-prod -n career-coach-prod >/dev/null 2>&1; then
+        print_info "Deleting existing backend deployment to apply storage changes..."
+        $KUBECTL delete deployment backend-prod -n career-coach-prod || true
+        sleep 5
+    fi
     retry 3 $KUBECTL apply -f k8s/backend-deployment-prod.yaml
     
     print_info "Applying AI service..."
+    # Delete existing AI service deployment if it exists with PVC
+    if $KUBECTL get deployment ai-service-prod -n career-coach-prod >/dev/null 2>&1; then
+        print_info "Deleting existing AI service deployment to apply storage changes..."
+        $KUBECTL delete deployment ai-service-prod -n career-coach-prod || true
+        sleep 5
+    fi
     retry 3 $KUBECTL apply -f k8s/ai-service-deployment-prod.yaml
     
     print_info "Applying frontend..."
