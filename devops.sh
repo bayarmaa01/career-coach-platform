@@ -2,8 +2,9 @@
 
 # Production-safe DevOps script for Career Coach Platform
 # Fully automated Kubernetes deployment for low-memory machines
+# Idempotent, self-healing, zero-error deployment
 
-set -e
+set -euo pipefail
 
 # Color definitions
 RED='\033[0;31m'
@@ -29,12 +30,31 @@ print_error() {
     echo -e "${RED}[ERROR]${NC} $1"
 }
 
+# Retry mechanism
+retry() {
+    local retries=$1
+    shift
+    local count=0
+    
+    until "$@"; do
+        exit_code=$?
+        count=$((count + 1))
+        if [ $count -lt $retries ]; then
+            print_info "Command failed (attempt $count/$retries). Retrying in 5s..."
+            sleep 5
+        else
+            print_error "Command failed after $retries attempts"
+            return $exit_code
+        fi
+    done
+}
+
 # Kubernetes wrapper - ALWAYS use this
 KUBECTL="minikube kubectl --"
 
 # Check if monitoring flag is passed
 WITH_MONITORING=false
-if [[ "$1" == "--with-monitoring" ]]; then
+if [[ "${1:-}" == "--with-monitoring" ]]; then
     WITH_MONITORING=true
     print_info "Monitoring enabled"
 fi
@@ -50,7 +70,7 @@ setup_environment() {
         start_minikube
     else
         print_info "Minikube cluster is running"
-        # Check if we can access the cluster properly
+        # Verify cluster health
         if ! $KUBECTL get pods -A >/dev/null 2>&1; then
             print_info "Minikube cluster access issues. Recreating..."
             cleanup_minikube
@@ -79,7 +99,7 @@ cleanup_minikube() {
 # Start Minikube with proper settings
 start_minikube() {
     print_info "Starting Minikube with optimized settings..."
-    minikube start \
+    retry 3 minikube start \
         --driver=docker \
         --cpus=4 \
         --memory=6144 \
@@ -87,7 +107,7 @@ start_minikube() {
         --force
     
     print_info "Waiting for Minikube to be ready..."
-    $KUBECTL wait --for=condition=Ready nodes --all --timeout=300s
+    retry 5 $KUBECTL wait --for=condition=Ready nodes --all --timeout=300s
     
     # Verify cluster is working
     $KUBECTL get pods -A
@@ -100,7 +120,7 @@ ensure_namespace() {
     
     if ! $KUBECTL get namespace career-coach-prod >/dev/null 2>&1; then
         print_info "Creating career-coach-prod namespace..."
-        $KUBECTL create namespace career-coach-prod
+        retry 3 $KUBECTL create namespace career-coach-prod
     else
         print_info "career-coach-prod namespace already exists"
     fi
@@ -114,7 +134,7 @@ create_secrets() {
     
     if ! $KUBECTL get secret app-secrets-prod -n career-coach-prod >/dev/null 2>&1; then
         print_info "Creating app-secrets-prod..."
-        $KUBECTL create secret generic app-secrets-prod \
+        retry 3 $KUBECTL create secret generic app-secrets-prod \
             --from-literal=POSTGRES_USER=postgres \
             --from-literal=POSTGRES_PASSWORD=$(openssl rand -base64 12) \
             --from-literal=REDIS_PASSWORD=$(openssl rand -base64 12) \
@@ -132,22 +152,13 @@ build_images() {
     print_step "Building Docker images..."
     
     print_info "Building backend image..."
-    docker build -t backend-prod:latest ./backend || {
-        print_error "Backend build failed"
-        exit 1
-    }
+    retry 3 docker build -t backend-prod:latest ./backend
     
     print_info "Building AI service image..."
-    docker build -t ai-service-prod:latest ./ai-service || {
-        print_error "AI service build failed"
-        exit 1
-    }
+    retry 3 docker build -t ai-service-prod:latest ./ai-service
     
     print_info "Building frontend image..."
-    docker build -t frontend-prod:latest ./frontend || {
-        print_error "Frontend build failed"
-        exit 1
-    }
+    retry 3 docker build -t frontend-prod:latest ./frontend
     
     print_success "All images built successfully"
 }
@@ -157,28 +168,28 @@ apply_configs() {
     print_step "Applying Kubernetes configurations..."
     
     print_info "Applying namespace..."
-    $KUBECTL apply -f k8s/namespace.yaml || true
+    retry 3 $KUBECTL apply -f k8s/namespace.yaml
     
     print_info "Applying secrets..."
-    $KUBECTL apply -f k8s/secrets.yaml || true
+    retry 3 $KUBECTL apply -f k8s/secrets.yaml
     
     print_info "Applying configmap..."
-    $KUBECTL apply -f k8s/configmap.yaml || true
+    retry 3 $KUBECTL apply -f k8s/configmap.yaml
     
     print_info "Applying PostgreSQL..."
-    $KUBECTL apply -f k8s/postgres-statefulset.yaml || true
+    retry 3 $KUBECTL apply -f k8s/postgres-statefulset.yaml
     
     print_info "Applying Redis..."
-    $KUBECTL apply -f k8s/redis-deployment-prod.yaml || true
+    retry 3 $KUBECTL apply -f k8s/redis-deployment-prod.yaml
     
     print_info "Applying backend..."
-    $KUBECTL apply -f k8s/backend-deployment-prod.yaml || true
+    retry 3 $KUBECTL apply -f k8s/backend-deployment-prod.yaml
     
     print_info "Applying AI service..."
-    $KUBECTL apply -f k8s/ai-service-deployment-prod.yaml || true
+    retry 3 $KUBECTL apply -f k8s/ai-service-deployment-prod.yaml
     
     print_info "Applying frontend..."
-    $KUBECTL apply -f k8s/frontend-deployment-prod.yaml || true
+    retry 3 $KUBECTL apply -f k8s/frontend-deployment-prod.yaml
     
     print_success "Kubernetes configurations applied"
     
@@ -191,21 +202,27 @@ apply_configs() {
 install_argocd() {
     print_step "Installing ArgoCD..."
     
-    # Check if ArgoCD namespace exists
-    if ! $KUBECTL get namespace argocd >/dev/null 2>&1; then
+    # Check if ArgoCD pods are running
+    if ! $KUBECTL get pods -n argocd | grep -q "argocd-server"; then
+        print_info "ArgoCD not found. Installing via Helm..."
+        
+        # Ensure namespace exists
+        $KUBECTL create namespace argocd 2>/dev/null || true
+        
+        # Add helm repo and install
         helm repo add argo https://argoproj.github.io/argo-helm
         helm repo update
         
-        helm install argocd argo/argo-cd \
+        retry 3 helm install argocd argo/argo-cd \
             --namespace argocd \
             --create-namespace \
             --wait --timeout=10m
     else
-        print_info "ArgoCD namespace already exists"
+        print_info "ArgoCD already installed"
     fi
     
     # Wait for ArgoCD pods to be ready
-    $KUBECTL wait --for=condition=ready pod -l app.kubernetes.io/name=argocd-server -n argocd --timeout=120s
+    retry 5 $KUBECTL wait --for=condition=ready pod -l app.kubernetes.io/name=argocd-server -n argocd --timeout=120s
     
     print_success "ArgoCD installed successfully"
 }
@@ -218,7 +235,7 @@ install_monitoring() {
         helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
         helm repo update
         
-        helm upgrade --install kube-prometheus-stack prometheus-community/kube-prometheus-stack \
+        retry 3 helm upgrade --install kube-prometheus-stack prometheus-community/kube-prometheus-stack \
             --namespace monitoring \
             --create-namespace \
             --timeout 10m \
@@ -237,24 +254,25 @@ wait_for_pods() {
     
     # Show current pod status
     print_info "Current pod status:"
-    $KUBECTL get pods -A || true
+    $KUBECTL get pods -A
     
     print_info "Waiting for career-coach-prod pods..."
-    $KUBECTL wait --for=condition=ready pod -n career-coach-prod --all --timeout=600s || {
+    if ! $KUBECTL wait --for=condition=ready pod -n career-coach-prod --all --timeout=600s; then
         print_error "Some career-coach-prod pods failed to start"
         print_info "Checking events for debugging:"
-        $KUBECTL get events -n career-coach-prod --sort-by='.lastTimestamp' || true
+        $KUBECTL get events -n career-coach-prod --sort-by='.lastTimestamp'
         print_info "Pod descriptions:"
-        $KUBECTL describe pods -n career-coach-prod || true
-    }
+        $KUBECTL describe pods -n career-coach-prod
+        exit 1
+    fi
     
     if [ "$WITH_MONITORING" = true ]; then
         print_info "Waiting for monitoring pods..."
-        $KUBECTL wait --for=condition=ready pod -n monitoring --all --timeout=300s || true
+        retry 3 $KUBECTL wait --for=condition=ready pod -n monitoring --all --timeout=300s
     fi
     
     print_info "Waiting for argocd pods..."
-    $KUBECTL wait --for=condition=ready pod -n argocd --all --timeout=300s || true
+    retry 3 $KUBECTL wait --for=condition=ready pod -n argocd --all --timeout=300s
     
     # Final status check
     print_info "Final pod status:"
@@ -283,41 +301,46 @@ setup_port_forward() {
     print_info "Checking pod status before port-forwarding:"
     $KUBECTL get pods -n career-coach-prod
     
-    # Start new port forwards
+    # Start new port forwards with validation
     print_info "Starting port forwards..."
     
     # Frontend
     if $KUBECTL get pods -l app=frontend-prod -n career-coach-prod -o name | grep -q "pod"; then
-        $KUBECTL port-forward svc/frontend-service 3100:80 -n career-coach-prod &
+        retry 3 $KUBECTL port-forward svc/frontend-service 3100:80 -n career-coach-prod &
         echo $! > /tmp/career-coach-frontend.pid
         print_info "Frontend port-forward started (3100:80)"
     else
         print_error "Frontend pods not ready"
+        exit 1
     fi
     
     # Backend
     if $KUBECTL get pods -l app=backend-prod -n career-coach-prod -o name | grep -q "pod"; then
-        $KUBECTL port-forward svc/backend-service 4100:5000 -n career-coach-prod &
+        retry 3 $KUBECTL port-forward svc/backend-service 4100:5000 -n career-coach-prod &
         echo $! > /tmp/career-coach-backend.pid
         print_info "Backend port-forward started (4100:5000)"
     else
         print_error "Backend pods not ready"
+        exit 1
     fi
     
     # AI Service
     if $KUBECTL get pods -l app=ai-service-prod -n career-coach-prod -o name | grep -q "pod"; then
-        $KUBECTL port-forward svc/ai-service 5100:5100 -n career-coach-prod &
+        retry 3 $KUBECTL port-forward svc/ai-service 5100:5100 -n career-coach-prod &
         echo $! > /tmp/career-coach-ai-service.pid
         print_info "AI service port-forward started (5100:5100)"
     else
         print_error "AI service pods not ready"
+        exit 1
     fi
     
-    # ArgoCD (only if namespace exists)
-    if $KUBECTL get namespace argocd >/dev/null 2>&1; then
-        $KUBECTL port-forward svc/argocd-server 18082:443 -n argocd &
+    # ArgoCD (only if service exists)
+    if $KUBECTL get svc argocd-server -n argocd >/dev/null 2>&1; then
+        retry 3 $KUBECTL port-forward svc/argocd-server 18082:443 -n argocd &
         echo $! > /tmp/career-coach-argocd.pid
         print_info "ArgoCD port-forward started (18082:443)"
+    else
+        print_info "ArgoCD service not found, skipping port-forward"
     fi
     
     # Wait for port forwards to establish
@@ -334,6 +357,43 @@ fetch_credentials() {
     ARGO_PASSWORD=$($KUBECTL -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" 2>/dev/null | base64 -d || echo "Not ready")
     
     print_success "Credentials fetched"
+}
+
+# Final validation
+validate_deployment() {
+    print_step "Validating deployment..."
+    
+    # Check all pods are running
+    RUNNING_PODS=$($KUBECTL get pods -n career-coach-prod --field-selector=status.phase=Running --no-headers | wc -l)
+    TOTAL_PODS=$($KUBECTL get pods -n career-coach-prod --no-headers | wc -l)
+    
+    if [ "$RUNNING_PODS" -ne "$TOTAL_PODS" ]; then
+        print_error "Not all pods are running: $RUNNING_PODS/$TOTAL_PODS"
+        exit 1
+    fi
+    
+    # Test service endpoints
+    print_info "Testing service endpoints..."
+    
+    # Test frontend
+    if ! curl -s --max-time 10 http://localhost:3100 >/dev/null; then
+        print_error "Frontend not accessible"
+        exit 1
+    fi
+    
+    # Test backend health
+    if ! curl -s --max-time 10 http://localhost:4100/api/health >/dev/null; then
+        print_error "Backend not accessible"
+        exit 1
+    fi
+    
+    # Test AI service health
+    if ! curl -s --max-time 10 http://localhost:5100/health >/dev/null; then
+        print_error "AI service not accessible"
+        exit 1
+    fi
+    
+    print_success "All services are accessible and healthy"
 }
 
 # Final output
@@ -384,6 +444,7 @@ main() {
     wait_for_pods
     setup_port_forward
     fetch_credentials
+    validate_deployment
     print_final_output
     
     echo -e "${GREEN}🎯 Deployment completed successfully!${NC}"
