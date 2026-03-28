@@ -39,11 +39,21 @@ setup_environment() {
     # Ensure Minikube is running
     if ! minikube status | grep -q "Running"; then
         print_info "Starting Minikube with Docker driver..."
-        minikube start --driver=docker --cpus=4 --memory=6144
+        minikube delete 2>/dev/null || true
+        minikube start --driver=docker --cpus=4 --memory=6144 --force
         print_info "Waiting for Minikube to be ready..."
         $KUBECTL wait --for=condition=Ready nodes --all --timeout=300s || true
     else
         print_info "Minikube is already running"
+        # Check if memory is sufficient
+        MEMORY=$(minikube config view memory 2>/dev/null | grep -o '[0-9]*' | head -1)
+        if [ "$MEMORY" -lt 6144 ]; then
+            print_info "Recreating Minikube with sufficient memory..."
+            minikube delete
+            minikube start --driver=docker --cpus=4 --memory=6144 --force
+            print_info "Waiting for Minikube to be ready..."
+            $KUBECTL wait --for=condition=Ready nodes --all --timeout=300s || true
+        fi
     fi
     
     # Enable Docker inside Minikube
@@ -140,26 +150,26 @@ apply_configs() {
     sleep 15
 }
 
-# Install ArgoCD (safe)
+# Install ArgoCD (GitOps)
 install_argocd() {
     print_step "Installing ArgoCD..."
     
-    # Check if argocd namespace exists
-    if $KUBECTL get namespace argocd >/dev/null 2>&1; then
-        print_info "ArgoCD namespace already exists, skipping installation..."
-        return
+    # Check if ArgoCD namespace exists
+    if ! $KUBECTL get namespace argocd >/dev/null 2>&1; then
+        helm repo add argo https://argoproj.github.io/argo-helm || true
+        helm repo update || true
+        
+        helm install argocd argo/argo-cd \
+            --namespace argocd \
+            --create-namespace \
+            --wait --timeout=10m || true
+    else
+        print_info "ArgoCD namespace already exists, checking installation..."
+        # Wait for ArgoCD pods to be ready
+        $KUBECTL wait --for=condition=ready pod -l app.kubernetes.io/name=argocd-server -n argocd --timeout=120s || true
     fi
     
-    print_info "Installing ArgoCD using Helm..."
-    helm repo add argo https://argoproj.github.io/argo-helm || true
-    helm repo update || true
-    
-    helm install argocd argo/argo-cd \
-        --namespace argocd \
-        --create-namespace \
-        --wait || true
-    
-    print_success "ArgoCD installed successfully"
+    print_success "ArgoCD installation completed"
 }
 
 # Install Prometheus + Grafana (DISABLED for low memory)
@@ -211,21 +221,28 @@ setup_port_forward() {
     
     # Wait for services to be ready before port-forwarding
     print_info "Waiting for services to be ready..."
-    $KUBECTL wait --for=condition=ready svc/frontend-service -n career-coach-prod --timeout=60s || true
-    $KUBECTL wait --for=condition=ready svc/backend-service -n career-coach-prod --timeout=60s || true
-    $KUBECTL wait --for=condition=ready svc/ai-service -n career-coach-prod --timeout=60s || true
+    $KUBECTL wait --for=condition=ready pods -l app=backend-prod -n career-coach-prod --timeout=120s || true
+    $KUBECTL wait --for=condition=ready pods -l app=frontend-prod -n career-coach-prod --timeout=120s || true
+    $KUBECTL wait --for=condition=ready pods -l app=ai-service-prod -n career-coach-prod --timeout=120s || true
     
     $KUBECTL port-forward svc/frontend-service 3100:80 -n career-coach-prod &
-    echo $! > /tmp/career-coach-frontend.pid || true
+    FRONTEND_PID=$!
+    echo $FRONTEND_PID > /tmp/career-coach-frontend.pid || true
     
     $KUBECTL port-forward svc/backend-service 4100:5000 -n career-coach-prod &
-    echo $! > /tmp/career-coach-backend.pid || true
+    BACKEND_PID=$!
+    echo $BACKEND_PID > /tmp/career-coach-backend.pid || true
     
     $KUBECTL port-forward svc/ai-service 5100:5100 -n career-coach-prod &
-    echo $! > /tmp/career-coach-ai-service.pid || true
+    AI_PID=$!
+    echo $AI_PID > /tmp/career-coach-ai-service.pid || true
     
-    $KUBECTL port-forward svc/argocd-server 18082:443 -n argocd &
-    echo $! > /tmp/career-coach-argocd.pid || true
+    # Only try ArgoCD if namespace exists
+    if $KUBECTL get namespace argocd >/dev/null 2>&1; then
+        $KUBECTL port-forward svc/argocd-server 18082:443 -n argocd &
+        ARGO_PID=$!
+        echo $ARGO_PID > /tmp/career-coach-argocd.pid || true
+    fi
     
     # Wait for port forwards to establish
     sleep 5
