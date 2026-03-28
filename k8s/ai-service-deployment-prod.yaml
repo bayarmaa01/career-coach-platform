@@ -70,11 +70,9 @@ spec:
           periodSeconds: 10
       volumes:
       - name: uploads-volume
-        persistentVolumeClaim:
-          claimName: uploads-pvc
+        emptyDir: {}
       - name: models-volume
-        persistentVolumeClaim:
-          claimName: models-pvc
+        emptyDir: {}
 ---
 apiVersion: v1
 kind: Service
