@@ -176,14 +176,33 @@ setup_port_forward() {
     
     # Start new port forwards with safety
     print_info "Starting port forwards..."
-    $KUBECTL port-forward svc/frontend-service 3100:3100 -n career-coach-prod &
-    echo $! > /tmp/career-coach-frontend.pid || true
     
-    $KUBECTL port-forward svc/backend-service 4100:4100 -n career-coach-prod &
-    echo $! > /tmp/career-coach-backend.pid || true
+    # Frontend
+    if lsof -ti:3100 >/dev/null 2>&1; then
+        print_info "Port 3100 already in use, skipping frontend port-forward"
+    else
+        $KUBECTL port-forward svc/frontend-service 3100:3100 -n career-coach-prod &
+        echo $! > /tmp/career-coach-frontend.pid || true
+        print_info "Frontend port-forward started (3100:3100)"
+    fi
     
-    $KUBECTL port-forward svc/ai-service 5100:5100 -n career-coach-prod &
-    echo $! > /tmp/career-coach-ai-service.pid || true
+    # Backend
+    if lsof -ti:4100 >/dev/null 2>&1; then
+        print_info "Port 4100 already in use, skipping backend port-forward"
+    else
+        $KUBECTL port-forward svc/backend-service 4100:4100 -n career-coach-prod &
+        echo $! > /tmp/career-coach-backend.pid || true
+        print_info "Backend port-forward started (4100:4100)"
+    fi
+    
+    # AI Service
+    if lsof -ti:5100 >/dev/null 2>&1; then
+        print_info "Port 5100 already in use, skipping AI service port-forward"
+    else
+        $KUBECTL port-forward svc/ai-service 5100:5100 -n career-coach-prod &
+        echo $! > /tmp/career-coach-ai-service.pid || true
+        print_info "AI service port-forward started (5100:5100)"
+    fi
     
     # Wait for port forwards to establish
     sleep 3
