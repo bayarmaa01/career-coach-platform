@@ -133,6 +133,9 @@ apply_configs() {
     print_info "Applying frontend..."
     $KUBECTL apply -f k8s/frontend-deployment-prod.yaml || true
     
+    print_info "Applying Grafana..."
+    $KUBECTL apply -f k8s/grafana-deployment.yaml || true
+    
     print_success "Kubernetes configurations applied"
     
     # Wait for pods to initialize
@@ -167,7 +170,7 @@ setup_port_forward() {
     
     # Kill old ports
     print_info "Cleaning up old port forwards..."
-    for port in 3100 4100 5100; do
+    for port in 3100 4100 5100 3003; do
         pid=$(lsof -ti:$port 2>/dev/null || true)
         if [ ! -z "$pid" ]; then
             kill -9 $pid 2>/dev/null || true
@@ -204,6 +207,19 @@ setup_port_forward() {
         print_info "AI service port-forward started (5100:5100)"
     fi
     
+    # Grafana
+    if $KUBECTL get svc grafana-service -n career-coach-prod >/dev/null 2>&1; then
+        if lsof -ti:3003 >/dev/null 2>&1; then
+            print_info "Port 3003 already in use, skipping Grafana port-forward"
+        else
+            $KUBECTL port-forward svc/grafana-service 3003:3003 -n career-coach-prod &
+            echo $! > /tmp/career-coach-grafana.pid || true
+            print_info "Grafana port-forward started (3003:3003)"
+        fi
+    else
+        print_info "Grafana service not found"
+    fi
+    
     # Wait for port forwards to establish
     sleep 3
     
@@ -222,6 +238,27 @@ print_final_output() {
     echo -e "${YELLOW}Backend:${NC}    http://localhost:4100"
     echo -e "${YELLOW}AI Service:${NC} http://localhost:5100"
     echo ""
+    echo -e "${YELLOW}Grafana:${NC}    http://localhost:3003"
+    echo -e "  ${BLUE}Username:${NC} admin"
+    echo -e "  ${BLUE}Password:${NC} admin"
+    echo ""
+    
+    # Quick health check
+    print_info "Performing quick health checks..."
+    sleep 5
+    
+    if curl -s --max-time 5 http://localhost:4100/api/health >/dev/null; then
+        print_success "✅ Backend health check passed"
+    else
+        print_info "⚠️ Backend health check failed (may still be starting)"
+    fi
+    
+    if curl -s --max-time 5 http://localhost:3100 >/dev/null; then
+        print_success "✅ Frontend accessibility check passed"
+    else
+        print_info "⚠️ Frontend accessibility check failed (may still be starting)"
+    fi
+    
     echo -e "${GREEN}========================================${NC}"
     echo ""
     echo -e "${BLUE}📋 Useful Commands:${NC}"
