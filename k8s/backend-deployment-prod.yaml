@@ -15,8 +15,8 @@ spec:
     metadata:
       labels:
         app: backend-prod
-        tier: api
     spec:
+      restartPolicy: Always
       containers:
       - name: backend
         image: backend-prod:latest
@@ -68,6 +68,10 @@ spec:
             configMapKeyRef:
               name: app-config
               key: JWT_EXPIRES_IN
+        - name: RATE_LIMIT_MAX_REQUESTS
+          value: "10000"
+        - name: RATE_LIMIT_WINDOW_MS
+          value: "900000"
         - name: CORS_ORIGIN
           valueFrom:
             configMapKeyRef:
@@ -102,14 +106,18 @@ spec:
           httpGet:
             path: /api/health
             port: 5000
-          initialDelaySeconds: 20
+          initialDelaySeconds: 30
           periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 5
         readinessProbe:
           httpGet:
             path: /api/health
             port: 5000
           initialDelaySeconds: 10
           periodSeconds: 5
+          timeoutSeconds: 5
+          failureThreshold: 5
       volumes:
       - name: uploads-volume
         emptyDir: {}
