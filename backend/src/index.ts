@@ -21,12 +21,16 @@ const NODE_ENV = process.env.NODE_ENV || 'development';
 
 const limiter = rateLimit({
   windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '900000'),
-  max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || '100'),
+  max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || '100000'),
   message: {
     error: 'Too many requests from this IP, please try again later.'
   },
   standardHeaders: true,
   legacyHeaders: false,
+  skip: (req) => {
+    // Skip rate limiting for health endpoint
+    return req.path === '/api/health' || process.env.DISABLE_RATE_LIMITING === 'true';
+  }
 });
 
 // Security and middleware

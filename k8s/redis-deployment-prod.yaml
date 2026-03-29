@@ -50,21 +50,21 @@ spec:
             command:
             - /bin/sh
             - -c
-            - "redis-cli -a $REDIS_PASSWORD ping"
-          initialDelaySeconds: 30
-          periodSeconds: 10
-          timeoutSeconds: 5
-          failureThreshold: 5
+            - "redis-cli -a $REDIS_PASSWORD ping | grep PONG"
+          initialDelaySeconds: 60
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 10
         readinessProbe:
           exec:
             command:
             - /bin/sh
             - -c
-            - "redis-cli -a $REDIS_PASSWORD ping"
-          initialDelaySeconds: 5
-          periodSeconds: 5
-          timeoutSeconds: 5
-          failureThreshold: 5
+            - "redis-cli -a $REDIS_PASSWORD ping | grep PONG"
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 10
+          failureThreshold: 10
       volumes:
       - name: redis-storage
         emptyDir: {}

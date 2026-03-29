@@ -54,23 +54,23 @@ spec:
         livenessProbe:
           exec:
             command:
-            - pg_isready
-            - -U
-            - postgres
-          initialDelaySeconds: 30
-          periodSeconds: 10
-          timeoutSeconds: 5
-          failureThreshold: 5
+            - /bin/sh
+            - -c
+            - "pg_isready -U postgres -h localhost"
+          initialDelaySeconds: 60
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 10
         readinessProbe:
           exec:
             command:
-            - pg_isready
-            - -U
-            - postgres
-          initialDelaySeconds: 5
-          periodSeconds: 5
-          timeoutSeconds: 5
-          failureThreshold: 5
+            - /bin/sh
+            - -c
+            - "pg_isready -U postgres -h localhost"
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 10
+          failureThreshold: 10
       volumes:
       - name: postgres-storage
         emptyDir: {}

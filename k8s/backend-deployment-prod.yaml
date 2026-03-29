@@ -69,9 +69,11 @@ spec:
               name: app-config
               key: JWT_EXPIRES_IN
         - name: RATE_LIMIT_MAX_REQUESTS
-          value: "10000"
+          value: "100000"
         - name: RATE_LIMIT_WINDOW_MS
           value: "900000"
+        - name: DISABLE_RATE_LIMITING
+          value: "true"
         - name: CORS_ORIGIN
           valueFrom:
             configMapKeyRef:
@@ -106,18 +108,18 @@ spec:
           httpGet:
             path: /api/health
             port: 5000
-          initialDelaySeconds: 30
-          periodSeconds: 10
-          timeoutSeconds: 5
-          failureThreshold: 5
+          initialDelaySeconds: 60
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 10
         readinessProbe:
           httpGet:
             path: /api/health
             port: 5000
-          initialDelaySeconds: 10
-          periodSeconds: 5
-          timeoutSeconds: 5
-          failureThreshold: 5
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 10
+          failureThreshold: 10
       volumes:
       - name: uploads-volume
         emptyDir: {}
