@@ -32,10 +32,14 @@ router.post(
   ],
   async (req: Request, res: Response): Promise<void> => {
     try {
+      console.log('📝 Registration attempt:', req.body.email);
+      
       const errors = validationResult(req);
       if (!errors.isEmpty()) {
+        console.log('❌ Validation errors:', errors.array());
         res.status(400).json({ 
           success: false,
+          message: "Validation failed",
           errors: errors.array() 
         });
         return;
@@ -43,12 +47,15 @@ router.post(
 
       const { email, password, firstName, lastName } = req.body;
 
+      // Check if user already exists
+      console.log('🔍 Checking if user exists...');
       const existingUser = await pool.query(
         "SELECT id FROM users WHERE email = $1",
         [email]
       );
 
       if (existingUser.rows.length > 0) {
+        console.log('❌ User already exists:', email);
         res.status(400).json({ 
           success: false,
           message: "User already exists" 
@@ -56,9 +63,11 @@ router.post(
         return;
       }
 
+      console.log('🔐 Hashing password...');
       const salt = await bcrypt.genSalt(12);
       const hashedPassword = await bcrypt.hash(password, salt);
 
+      console.log('💾 Creating new user...');
       const result = await pool.query(
         `INSERT INTO users (email, password, first_name, last_name, role)
          VALUES ($1, $2, $3, $4, $5)
@@ -67,6 +76,7 @@ router.post(
       );
 
       const user = result.rows[0];
+      console.log('✅ User created successfully:', user.email);
 
       const token = generateToken({
         id: user.id,
@@ -74,8 +84,11 @@ router.post(
         role: user.role
       });
 
+      console.log('🎫 Token generated for user:', user.email);
+      
       res.status(201).json({
         success: true,
+        message: "User registered successfully",
         data: {
           user: {
             id: user.id,
@@ -89,10 +102,30 @@ router.post(
         }
       });
     } catch (error) {
-      console.error("Registration error:", error);
+      console.error("❌ Registration error:", error);
+      
+      // Handle specific database errors
+      if (error instanceof Error) {
+        if (error.message.includes('connection')) {
+          res.status(503).json({ 
+            success: false,
+            message: "Database connection error. Please try again later." 
+          });
+          return;
+        }
+        if (error.message.includes('duplicate key')) {
+          res.status(400).json({ 
+            success: false,
+            message: "User already exists" 
+          });
+          return;
+        }
+      }
+      
       res.status(500).json({ 
         success: false,
-        message: "Server error during registration" 
+        message: "Server error during registration",
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined
       });
     }
   }
@@ -108,10 +141,14 @@ router.post(
   ],
   async (req: Request, res: Response): Promise<void> => {
     try {
+      console.log('🔑 Login attempt:', req.body.email);
+      
       const errors = validationResult(req);
       if (!errors.isEmpty()) {
+        console.log('❌ Validation errors:', errors.array());
         res.status(400).json({ 
           success: false,
+          message: "Validation failed",
           errors: errors.array() 
         });
         return;
@@ -119,12 +156,14 @@ router.post(
 
       const { email, password } = req.body;
 
+      console.log('🔍 Looking up user...');
       const result = await pool.query(
         "SELECT id, email, password, first_name, last_name, role FROM users WHERE email = $1",
         [email]
       );
 
       if (result.rows.length === 0) {
+        console.log('❌ User not found:', email);
         res.status(401).json({ 
           success: false,
           message: "Invalid credentials" 
@@ -133,9 +172,12 @@ router.post(
       }
 
       const user = result.rows[0];
+      console.log('🔐 Comparing password for user:', user.email);
+      
       const isMatch = await bcrypt.compare(password, user.password);
 
       if (!isMatch) {
+        console.log('❌ Password mismatch for user:', user.email);
         res.status(401).json({ 
           success: false,
           message: "Invalid credentials" 
@@ -143,14 +185,19 @@ router.post(
         return;
       }
 
+      console.log('✅ Login successful for user:', user.email);
+      
       const token = generateToken({
         id: user.id,
         email: user.email,
         role: user.role
       });
 
-      res.json({
+      console.log('🎫 Token generated for user:', user.email);
+
+      res.status(200).json({
         success: true,
+        message: "Login successful",
         data: {
           user: {
             id: user.id,
@@ -163,10 +210,23 @@ router.post(
         }
       });
     } catch (error) {
-      console.error("Login error:", error);
+      console.error("❌ Login error:", error);
+      
+      // Handle specific database errors
+      if (error instanceof Error) {
+        if (error.message.includes('connection')) {
+          res.status(503).json({ 
+            success: false,
+            message: "Database connection error. Please try again later." 
+          });
+          return;
+        }
+      }
+      
       res.status(500).json({ 
         success: false,
-        message: "Server error during login" 
+        message: "Server error during login",
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined
       });
     }
   }

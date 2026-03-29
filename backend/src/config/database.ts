@@ -19,16 +19,35 @@ const pool = new Pool({
   password: process.env.DATABASE_PASSWORD || process.env.DB_PASSWORD || 'password',
   max: 20,
   idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 2000,
+  connectionTimeoutMillis: 10000, // Increased timeout
+  retry: 3, // Add retry attempts
 });
 
+// Test connection on startup
+const testConnection = async () => {
+  try {
+    const client = await pool.connect();
+    await client.query('SELECT NOW()');
+    client.release();
+    console.log('✅ Connected to PostgreSQL database successfully');
+  } catch (error) {
+    console.error('❌ Database connection failed:', error);
+    console.log('🔄 Retrying connection in 5 seconds...');
+    setTimeout(testConnection, 5000);
+  }
+};
+
 pool.on('connect', () => {
-  console.log('Connected to PostgreSQL database');
+  console.log('✅ Connected to PostgreSQL database');
 });
 
 pool.on('error', (err) => {
-  console.error('Unexpected error on idle client', err);
-  process.exit(-1);
+  console.error('❌ Unexpected error on idle client', err);
+  // Don't exit, just log and retry
+  setTimeout(testConnection, 5000);
 });
+
+// Test connection on startup
+testConnection();
 
 export default pool;
