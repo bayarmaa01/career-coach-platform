@@ -256,6 +256,10 @@ install_monitoring() {
     if [ "$WITH_MONITORING" = true ]; then
         print_step "Installing Prometheus and Grafana..."
         
+        # Install Grafana on port 3003
+        print_info "Installing Grafana on port 3003..."
+        retry 3 $KUBECTL apply -f k8s/grafana-deployment.yaml
+        
         helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
         helm repo update
         
@@ -324,7 +328,7 @@ setup_port_forward() {
     done
     
     # Kill any remaining processes on ports
-    for port in 3100 4100 5100 18082; do
+    for port in 3100 4100 5100 18082 3003; do
         pid=$(lsof -ti:$port 2>/dev/null || true)
         if [ ! -z "$pid" ]; then
             kill -9 $pid 2>/dev/null || true
@@ -343,9 +347,14 @@ setup_port_forward() {
     
     # Frontend
     if $KUBECTL get pods -l app=frontend-prod -n career-coach-prod -o name | grep -q "pod"; then
-        retry 3 $KUBECTL port-forward svc/frontend-service 3100:3100 -n career-coach-prod &
-        echo $! > /tmp/career-coach-frontend.pid
-        print_info "Frontend port-forward started (3100:3100)"
+        # Check if port is already in use
+        if lsof -ti:3100 >/dev/null 2>&1; then
+            print_info "Port 3100 already in use, skipping frontend port-forward"
+        else
+            retry 3 $KUBECTL port-forward svc/frontend-service 3100:3100 -n career-coach-prod &
+            echo $! > /tmp/career-coach-frontend.pid
+            print_info "Frontend port-forward started (3100:3100)"
+        fi
     else
         print_error "Frontend pods not ready"
         exit 1
@@ -353,9 +362,14 @@ setup_port_forward() {
     
     # Backend
     if $KUBECTL get pods -l app=backend-prod -n career-coach-prod -o name | grep -q "pod"; then
-        retry 3 $KUBECTL port-forward svc/backend-service 4100:4100 -n career-coach-prod &
-        echo $! > /tmp/career-coach-backend.pid
-        print_info "Backend port-forward started (4100:4100)"
+        # Check if port is already in use
+        if lsof -ti:4100 >/dev/null 2>&1; then
+            print_info "Port 4100 already in use, skipping backend port-forward"
+        else
+            retry 3 $KUBECTL port-forward svc/backend-service 4100:4100 -n career-coach-prod &
+            echo $! > /tmp/career-coach-backend.pid
+            print_info "Backend port-forward started (4100:4100)"
+        fi
     else
         print_error "Backend pods not ready"
         exit 1
@@ -363,9 +377,14 @@ setup_port_forward() {
     
     # AI Service
     if $KUBECTL get pods -l app=ai-service-prod -n career-coach-prod -o name | grep -q "pod"; then
-        retry 3 $KUBECTL port-forward svc/ai-service 5100:5100 -n career-coach-prod &
-        echo $! > /tmp/career-coach-ai-service.pid
-        print_info "AI service port-forward started (5100:5100)"
+        # Check if port is already in use
+        if lsof -ti:5100 >/dev/null 2>&1; then
+            print_info "Port 5100 already in use, skipping AI service port-forward"
+        else
+            retry 3 $KUBECTL port-forward svc/ai-service 5100:5100 -n career-coach-prod &
+            echo $! > /tmp/career-coach-ai-service.pid
+            print_info "AI service port-forward started (5100:5100)"
+        fi
     else
         print_error "AI service pods not ready"
         exit 1
@@ -373,11 +392,30 @@ setup_port_forward() {
     
     # ArgoCD (only if service exists)
     if $KUBECTL get svc argocd-server -n argocd >/dev/null 2>&1; then
-        retry 3 $KUBECTL port-forward svc/argocd-server 18082:443 -n argocd &
-        echo $! > /tmp/career-coach-argocd.pid
-        print_info "ArgoCD port-forward started (18082:443)"
+        # Check if port is already in use
+        if lsof -ti:18082 >/dev/null 2>&1; then
+            print_info "Port 18082 already in use, skipping ArgoCD port-forward"
+        else
+            retry 3 $KUBECTL port-forward svc/argocd-server 18082:443 -n argocd &
+            echo $! > /tmp/career-coach-argocd.pid
+            print_info "ArgoCD port-forward started (18082:443)"
+        fi
     else
         print_info "ArgoCD service not found, skipping port-forward"
+    fi
+    
+    # Grafana (only if monitoring is enabled and service exists)
+    if [ "$WITH_MONITORING" = true ] && $KUBECTL get svc grafana-service -n career-coach-prod >/dev/null 2>&1; then
+        # Check if port is already in use
+        if lsof -ti:3003 >/dev/null 2>&1; then
+            print_info "Port 3003 already in use, skipping Grafana port-forward"
+        else
+            retry 3 $KUBECTL port-forward svc/grafana-service 3003:3003 -n career-coach-prod &
+            echo $! > /tmp/career-coach-grafana.pid
+            print_info "Grafana port-forward started (3003:3003)"
+        fi
+    else
+        print_info "Grafana not available (use --with-monitoring flag to enable)"
     fi
     
     # Wait for port forwards to establish
@@ -453,7 +491,7 @@ print_final_output() {
     if [ "$WITH_MONITORING" = true ]; then
         echo -e "${YELLOW}Grafana:${NC} http://localhost:3003"
         echo -e "  ${BLUE}Username:${NC} admin"
-        echo -e "  ${BLUE}Password:${NC} $GRAFANA_PASSWORD"
+        echo -e "  ${BLUE}Password:${NC} admin"
         echo ""
     fi
     echo -e "${GREEN}========================================${NC}"
