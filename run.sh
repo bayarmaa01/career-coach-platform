@@ -176,10 +176,10 @@ setup_port_forward() {
     
     # Start new port forwards with safety
     print_info "Starting port forwards..."
-    $KUBECTL port-forward svc/frontend-service 3100:80 -n career-coach-prod &
+    $KUBECTL port-forward svc/frontend-service 3100:3100 -n career-coach-prod &
     echo $! > /tmp/career-coach-frontend.pid || true
     
-    $KUBECTL port-forward svc/backend-service 4100:5000 -n career-coach-prod &
+    $KUBECTL port-forward svc/backend-service 4100:4100 -n career-coach-prod &
     echo $! > /tmp/career-coach-backend.pid || true
     
     $KUBECTL port-forward svc/ai-service 5100:5100 -n career-coach-prod &
