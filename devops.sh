@@ -311,6 +311,19 @@ setup_port_forward() {
     
     # Kill old port forwards
     print_info "Cleaning up old port forwards..."
+    
+    # Kill processes by PID files first
+    for pidfile in /tmp/career-coach-*.pid; do
+        if [ -f "$pidfile" ]; then
+            pid=$(cat "$pidfile" 2>/dev/null || echo "")
+            if [ ! -z "$pid" ] && kill -0 "$pid" 2>/dev/null; then
+                kill -9 "$pid" 2>/dev/null || true
+            fi
+            rm -f "$pidfile" 2>/dev/null || true
+        fi
+    done
+    
+    # Kill any remaining processes on ports
     for port in 3100 4100 5100 18082; do
         pid=$(lsof -ti:$port 2>/dev/null || true)
         if [ ! -z "$pid" ]; then
@@ -330,9 +343,9 @@ setup_port_forward() {
     
     # Frontend
     if $KUBECTL get pods -l app=frontend-prod -n career-coach-prod -o name | grep -q "pod"; then
-        retry 3 $KUBECTL port-forward svc/frontend-service 3100:80 -n career-coach-prod &
+        retry 3 $KUBECTL port-forward svc/frontend-service 3100:3100 -n career-coach-prod &
         echo $! > /tmp/career-coach-frontend.pid
-        print_info "Frontend port-forward started (3100:80)"
+        print_info "Frontend port-forward started (3100:3100)"
     else
         print_error "Frontend pods not ready"
         exit 1
@@ -340,9 +353,9 @@ setup_port_forward() {
     
     # Backend
     if $KUBECTL get pods -l app=backend-prod -n career-coach-prod -o name | grep -q "pod"; then
-        retry 3 $KUBECTL port-forward svc/backend-service 4100:5000 -n career-coach-prod &
+        retry 3 $KUBECTL port-forward svc/backend-service 4100:4100 -n career-coach-prod &
         echo $! > /tmp/career-coach-backend.pid
-        print_info "Backend port-forward started (4100:5000)"
+        print_info "Backend port-forward started (4100:4100)"
     else
         print_error "Backend pods not ready"
         exit 1
