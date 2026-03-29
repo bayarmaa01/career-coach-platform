@@ -184,6 +184,7 @@ apply_configs() {
         sleep 5
     fi
     retry 3 $KUBECTL apply -f k8s/postgres-statefulset.yaml
+    retry 3 $KUBECTL apply -f k8s/postgres-service.yaml
     
     print_info "Applying Redis..."
     # Delete existing Redis deployment if it exists with PVC
