@@ -170,7 +170,7 @@ setup_port_forward() {
     
     # Kill old ports
     print_info "Cleaning up old port forwards..."
-    for port in 3100 4100 5100 3003; do
+    for port in 3100 4100 5100 3003 18082; do
         pid=$(lsof -ti:$port 2>/dev/null || true)
         if [ ! -z "$pid" ]; then
             kill -9 $pid 2>/dev/null || true
@@ -220,6 +220,19 @@ setup_port_forward() {
         print_info "Grafana service not found"
     fi
     
+    # ArgoCD
+    if $KUBECTL get svc argocd-server -n argocd >/dev/null 2>&1; then
+        if lsof -ti:18082 >/dev/null 2>&1; then
+            print_info "Port 18082 already in use, skipping ArgoCD port-forward"
+        else
+            $KUBECTL port-forward svc/argocd-server 18082:443 -n argocd &
+            echo $! > /tmp/career-coach-argocd.pid || true
+            print_info "ArgoCD port-forward started (18082:443)"
+        fi
+    else
+        print_info "ArgoCD service not found"
+    fi
+    
     # Wait for port forwards to establish
     sleep 3
     
@@ -241,6 +254,10 @@ print_final_output() {
     echo -e "${YELLOW}Grafana:${NC}    http://localhost:3003"
     echo -e "  ${BLUE}Username:${NC} admin"
     echo -e "  ${BLUE}Password:${NC} admin"
+    echo ""
+    echo -e "${YELLOW}ArgoCD:${NC}     https://localhost:18082"
+    echo -e "  ${BLUE}Username:${NC} admin"
+    echo -e "  ${BLUE}Password:${NC} $ARGO_PASSWORD"
     echo ""
     
     # Quick health check
@@ -281,6 +298,10 @@ main() {
     apply_configs
     wait_for_pods
     setup_port_forward
+    
+    # Fetch ArgoCD password
+    ARGO_PASSWORD=$($KUBECTL -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" 2>/dev/null | base64 -d || echo "Not ready")
+    
     print_final_output
     
     echo -e "${GREEN}🎯 Quick deployment completed successfully!${NC}"
