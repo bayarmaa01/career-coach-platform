@@ -175,6 +175,7 @@ apply_configs() {
     
     print_info "Applying configmap..."
     retry 3 $KUBECTL apply -f k8s/configmap.yaml
+    retry 3 $KUBECTL apply -f k8s/postgres-init-configmap.yaml
     
     print_info "Applying PostgreSQL..."
     # Delete existing StatefulSet if it exists with PVC volumeClaimTemplate

@@ -2,8 +2,9 @@ FROM node:20-alpine
 
 WORKDIR /app
 
-# Install system dependencies
-RUN apk add --no-cache python3 make g++
+# Install system dependencies with timeout handling
+RUN apk add --no-cache --update --timeout=300 python3 make g++ && \
+    apk cache clean
 
 # Copy package files
 COPY package*.json ./
