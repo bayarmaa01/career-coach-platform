@@ -420,7 +420,7 @@ setup_port_forwards() {
     # Backend
     if minikube kubectl -- get pods -l app=backend-prod -n career-coach-prod -o name | grep -q "pod"; then
         if ! lsof -ti:4100 >/dev/null 2>&1; then
-            minikube kubectl -- port-forward svc/backend-service 4100:5000 -n career-coach-prod &
+            minikube kubectl -- port-forward svc/backend 4100:5000 -n career-coach-prod &
             echo $! > /tmp/career-coach-backend.pid
             print_success "Backend port-forward started (4100:5000)"
         else
