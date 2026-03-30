@@ -98,4 +98,3 @@ spec:
       - name: init-scripts
         configMap:
           name: postgres-init
-          namespace: career-coach-prod
