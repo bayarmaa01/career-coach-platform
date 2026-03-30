@@ -315,7 +315,7 @@ apply_kubernetes_configs() {
     
     print_info "Applying AI service..."
     retry 3 minikube kubectl -- apply -f k8s/ai-service-deployment-prod.yaml
-    retry 3 minikube kubectl -- apply -f k8s/ai-service.yaml
+    retry 3 minikube kubectl -- apply -f k8s/ai-service-service.yaml
     
     print_info "Applying frontend..."
     retry 3 minikube kubectl -- apply -f k8s/frontend-deployment-prod.yaml
