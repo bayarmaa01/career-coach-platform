@@ -21,27 +21,6 @@ spec:
         volumeMounts:
         - name: postgres-storage
           mountPath: /var/lib/postgresql/data
-      - name: init-db
-        image: postgres:15-alpine
-        command: ['sh', '-c', 'psql -h localhost -U $POSTGRES_USER -d $POSTGRES_DB -f /docker-entrypoint-initdb.d/init.sql']
-        env:
-        - name: POSTGRES_DB
-          value: "career_coach"
-        - name: POSTGRES_USER
-          valueFrom:
-            secretKeyRef:
-              name: app-secrets
-              key: POSTGRES_USER
-        - name: POSTGRES_PASSWORD
-          valueFrom:
-            secretKeyRef:
-              name: app-secrets
-              key: POSTGRES_PASSWORD
-        volumeMounts:
-        - name: postgres-storage
-          mountPath: /var/lib/postgresql/data
-        - name: init-scripts
-          mountPath: /docker-entrypoint-initdb.d
       containers:
       - name: postgres
         image: postgres:15-alpine
@@ -49,7 +28,10 @@ spec:
         - containerPort: 5432
         env:
         - name: POSTGRES_DB
-          value: "career_coach"
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: POSTGRES_DB
         - name: POSTGRES_USER
           valueFrom:
             secretKeyRef:
@@ -65,6 +47,8 @@ spec:
         volumeMounts:
         - name: postgres-storage
           mountPath: /var/lib/postgresql/data
+        - name: init-scripts
+          mountPath: /docker-entrypoint-initdb.d
         resources:
           requests:
             memory: "256Mi"
