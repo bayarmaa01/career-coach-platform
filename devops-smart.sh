@@ -393,15 +393,12 @@ setup_port_forwards() {
     print_step "Starting port forwards..."
     
     # Kill existing port forwards
-    if [ -f /tmp/career-coach-*.pid ]; then
-        print_info "Cleaning up existing port forwards..."
-        for pid_file in /tmp/career-coach-*.pid; do
-            if [ -f "$pid_file" ]; then
-                kill -$(cat "$pid_file") 2>/dev/null || true
-                rm -f "$pid_file"
-            fi
-        done
-    fi
+    for pid_file in /tmp/career-coach-*.pid; do
+        if [ -f "$pid_file" ]; then
+            kill -$(cat "$pid_file") 2>/dev/null || true
+            rm -f "$pid_file"
+        fi
+    done
     
     # Frontend
     if minikube kubectl -- get pods -l app=frontend-prod -n career-coach-prod -o name | grep -q "pod"; then
@@ -498,14 +495,12 @@ print_final_output() {
 # Cleanup function
 cleanup() {
     print_info "Cleaning up..."
-    if [ -f /tmp/career-coach-*.pid ]; then
-        for pid_file in /tmp/career-coach-*.pid; do
-            if [ -f "$pid_file" ]; then
-                kill -$(cat "$pid_file") 2>/dev/null || true
-                rm -f "$pid_file"
-            fi
-        done
-    fi
+    for pid_file in /tmp/career-coach-*.pid; do
+        if [ -f "$pid_file" ]; then
+            kill -$(cat "$pid_file") 2>/dev/null || true
+            rm -f "$pid_file"
+        fi
+    done
     print_success "Cleanup completed"
 }
 
