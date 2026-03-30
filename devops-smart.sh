@@ -265,7 +265,7 @@ setup_port_forwards() {
     
     # Kill existing port forwards safely
     for pid_file in /tmp/career-coach-*.pid; do
-        [ -f "$pid_file" ] && kill -$(cat "$pid_file" 2>/dev/null || true && rm -f "$pid_file"
+        [ -f "$pid_file" ] && kill -$(cat "$pid_file" 2>/dev/null || true) && rm -f "$pid_file"
     done
     
     # Frontend
@@ -363,7 +363,7 @@ print_access_info() {
 cleanup() {
     print_info "Cleaning up port forwards..."
     for pid_file in /tmp/career-coach-*.pid; do
-        [ -f "$pid_file" ] && kill -$(cat "$pid_file" 2>/dev/null || true && rm -f "$pid_file"
+        [ -f "$pid_file" ] && kill -$(cat "$pid_file" 2>/dev/null || true) && rm -f "$pid_file"
     done
     print_success "Cleanup completed"
 }
