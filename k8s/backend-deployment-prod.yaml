@@ -40,12 +40,12 @@ spec:
         - name: DATABASE_USER
           valueFrom:
             secretKeyRef:
-              name: app-secrets-prod
+              name: app-secrets
               key: POSTGRES_USER
         - name: DATABASE_PASSWORD
           valueFrom:
             secretKeyRef:
-              name: app-secrets-prod
+              name: app-secrets
               key: POSTGRES_PASSWORD
         - name: REDIS_HOST
           value: "redis-service"
@@ -54,24 +54,20 @@ spec:
         - name: REDIS_PASSWORD
           valueFrom:
             secretKeyRef:
-              name: app-secrets-prod
+              name: app-secrets
               key: REDIS_PASSWORD
         - name: AI_SERVICE_URL
           value: "http://ai-service:5100"
         - name: JWT_SECRET
           valueFrom:
             secretKeyRef:
-              name: app-secrets-prod
+              name: app-secrets
               key: JWT_SECRET
         - name: JWT_EXPIRES_IN
           valueFrom:
             configMapKeyRef:
               name: app-config
               key: JWT_EXPIRES_IN
-        - name: RATE_LIMIT_MAX_REQUESTS
-          value: "100000"
-        - name: RATE_LIMIT_WINDOW_MS
-          value: "900000"
         - name: DISABLE_RATE_LIMITING
           value: "true"
         - name: CORS_ORIGIN
@@ -84,16 +80,6 @@ spec:
             configMapKeyRef:
               name: app-config
               key: MAX_FILE_SIZE
-        - name: RATE_LIMIT_WINDOW_MS
-          valueFrom:
-            configMapKeyRef:
-              name: app-config
-              key: RATE_LIMIT_WINDOW_MS
-        - name: RATE_LIMIT_MAX_REQUESTS
-          valueFrom:
-            configMapKeyRef:
-              name: app-config
-              key: RATE_LIMIT_MAX_REQUESTS
         volumeMounts:
         - name: uploads-volume
           mountPath: /app/uploads

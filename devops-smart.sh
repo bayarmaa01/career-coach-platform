@@ -357,8 +357,8 @@ wait_for_pods() {
     local timeout=300
     local wait_time=20
     if [ "$FAST_MODE" = true ]; then
-        timeout=120
-        wait_time=5
+        timeout=180
+        wait_time=10
         print_info "Using fast mode timeouts"
     fi
     
@@ -371,7 +371,7 @@ wait_for_pods() {
     while [ $(date +%s) -lt $end_time ]; do
         local pod_status=$(minikube kubectl -- get pods -n career-coach-prod --no-headers 2>/dev/null)
         
-        local ready_count=$(echo "$pod_status" | grep -c "Running" || echo "0")
+        local ready_count=$(echo "$pod_status" | grep -E "(Running|Ready)" | wc -l || echo "0")
         local total_count=$(echo "$pod_status" | wc -l)
         
         print_info "Current pod status: $ready_count/$total_count ready"
