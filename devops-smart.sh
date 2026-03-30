@@ -64,7 +64,7 @@ build_images() {
     local ai_service_changed=false
     
     # Check if source files changed (simple timestamp check)
-    if [ -f backend/Dockerfile ]; then
+    if [ -d "backend" ] && [ -f backend/Dockerfile ]; then
         local backend_time=$(find backend -name "*.ts" -o -name "*.js" -o -name "package.json" | head -1 | xargs ls -lt 2>/dev/null | head -1 | awk '{print $6, $7, $8}')
         if [ ! -f .backend_build_time ] || [ "$backend_time" != "$(cat .backend_build_time)" ]; then
             backend_changed=true
@@ -72,7 +72,7 @@ build_images() {
         fi
     fi
     
-    if [ -f frontend/Dockerfile ]; then
+    if [ -d "frontend" ] && [ -f frontend/Dockerfile ]; then
         local frontend_time=$(find frontend -name "*.ts" -o -name "*.tsx" -o -name "package.json" | head -1 | xargs ls -lt 2>/dev/null | head -1 | awk '{print $6, $7, $8}')
         if [ ! -f .frontend_build_time ] || [ "$frontend_time" != "$(cat .frontend_build_time)" ]; then
             frontend_changed=true
@@ -80,7 +80,7 @@ build_images() {
         fi
     fi
     
-    if [ -f ai-service/Dockerfile ]; then
+    if [ -d "ai-service" ] && [ -f ai-service/Dockerfile ]; then
         local ai_time=$(find ai-service -name "*.py" -o -name "requirements.txt" | head -1 | xargs ls -lt 2>/dev/null | head -1 | awk '{print $6, $7, $8}')
         if [ ! -f .ai_build_time ] || [ "$ai_time" != "$(cat .ai_build_time)" ]; then
             ai_service_changed=true
@@ -93,23 +93,35 @@ build_images() {
     
     if [ "$backend_changed" = true ]; then
         print_info "Building backend..."
-        cd backend && docker build -t backend-prod:latest . >/dev/null 2>&1 &
-        pids+=($!)
-        cd ..
+        if [ -d "backend" ]; then
+            cd backend && docker build -t backend-prod:latest . >/dev/null 2>&1 &
+            pids+=($!)
+            cd ..
+        else
+            print_info "Backend directory not found, skipping build"
+        fi
     fi
     
     if [ "$frontend_changed" = true ]; then
         print_info "Building frontend..."
-        cd frontend && docker build -t frontend-prod:latest . >/dev/null 2>&1 &
-        pids+=($!)
-        cd ..
+        if [ -d "frontend" ]; then
+            cd frontend && docker build -t frontend-prod:latest . >/dev/null 2>&1 &
+            pids+=($!)
+            cd ..
+        else
+            print_info "Frontend directory not found, skipping build"
+        fi
     fi
     
     if [ "$ai_service_changed" = true ]; then
         print_info "Building AI service..."
-        cd ai-service && docker build -t ai-service-prod:latest . >/dev/null 2>&1 &
-        pids+=($!)
-        cd ..
+        if [ -d "ai-service" ]; then
+            cd ai-service && docker build -t ai-service-prod:latest . >/dev/null 2>&1 &
+            pids+=($!)
+            cd ..
+        else
+            print_info "AI service directory not found, skipping build"
+        fi
     fi
     
     # Wait for all builds
