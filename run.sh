@@ -170,11 +170,8 @@ setup_port_forward() {
     
     # Kill old ports
     print_info "Cleaning up old port forwards..."
-    for port in 3100 4100 5100 3003 18082; do
-        pid=$(lsof -ti:$port 2>/dev/null || true)
-        if [ ! -z "$pid" ]; then
-            kill -9 $pid 2>/dev/null || true
-        fi
+    for pid in /tmp/career-coach-*.pid; do
+        [ -f "$pid" ] && kill -$(cat "$pid" 2>/dev/null || true) && rm -f "$pid"
     done
     
     # Start new port forwards with safety
@@ -193,9 +190,9 @@ setup_port_forward() {
     if lsof -ti:4100 >/dev/null 2>&1; then
         print_info "Port 4100 already in use, skipping backend port-forward"
     else
-        $KUBECTL port-forward svc/backend-service 4100:4100 -n career-coach-prod &
+        $KUBECTL port-forward svc/backend 4100:5000 -n career-coach-prod &
         echo $! > /tmp/career-coach-backend.pid || true
-        print_info "Backend port-forward started (4100:4100)"
+        print_info "Backend port-forward started (4100:5000)"
     fi
     
     # AI Service
@@ -212,9 +209,9 @@ setup_port_forward() {
         if lsof -ti:3003 >/dev/null 2>&1; then
             print_info "Port 3003 already in use, skipping Grafana port-forward"
         else
-            $KUBECTL port-forward svc/grafana-service 3003:3003 -n career-coach-prod &
+            $KUBECTL port-forward svc/grafana-service 3003:3000 -n career-coach-prod &
             echo $! > /tmp/career-coach-grafana.pid || true
-            print_info "Grafana port-forward started (3003:3003)"
+            print_info "Grafana port-forward started (3003:3000)"
         fi
     else
         print_info "Grafana service not found"
