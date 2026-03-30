@@ -277,7 +277,13 @@ setup_port_forwards() {
     
     # Kill existing port forwards safely
     for pid_file in /tmp/career-coach-*.pid; do
-        [ -f "$pid_file" ] && kill -$(cat "$pid_file" 2>/dev/null || true) && rm -f "$pid_file"
+        if [ -f "$pid_file" ]; then
+            local pid=$(cat "$pid_file" 2>/dev/null || true)
+            if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
+                kill "$pid" 2>/dev/null || true
+            fi
+            rm -f "$pid_file"
+        fi
     done
     
     # Frontend
