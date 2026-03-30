@@ -167,13 +167,32 @@ setup_environment() {
         minikube delete --all --purge >/dev/null 2>&1 || true
         
         print_info "Starting Minikube with optimized settings..."
-        minikube start \
+        # Try newer syntax first, fallback to older syntax
+        if minikube start \
             --driver=docker \
             --memory="$MINIKUBE_MEMORY" \
             --cpus="$MINIKUBE_CPUS" \
             --disk-size="20g" \
             --kubernetes-version="stable" \
-            --extra-configs=kubelet.max-pods=110
+            --extra-config=kubelet.max-pods=110 2>/dev/null; then
+            print_info "Minikube started with new syntax"
+        elif minikube start \
+            --driver=docker \
+            --memory="$MINIKUBE_MEMORY" \
+            --cpus="$MINIKUBE_CPUS" \
+            --disk-size="20g" \
+            --kubernetes-version="stable" \
+            --extra-configs=kubelet.max-pods=110 2>/dev/null; then
+            print_info "Minikube started with legacy syntax"
+        else
+            print_info "Starting Minikube with basic settings..."
+            minikube start \
+                --driver=docker \
+                --memory="$MINIKUBE_MEMORY" \
+                --cpus="$MINIKUBE_CPUS" \
+                --disk-size="20g" \
+                --kubernetes-version="stable"
+        fi
         
         print_info "Waiting for Minikube to be ready..."
         minikube kubectl -- wait --for=condition=ready --timeout=300s pod --all -A
