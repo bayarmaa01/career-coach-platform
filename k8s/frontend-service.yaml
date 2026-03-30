@@ -2,7 +2,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: frontend
-  namespace: career-coach
+  namespace: career-coach-prod
 spec:
   selector:
     app: frontend
