@@ -16,6 +16,7 @@ NC='\033[0m' # No Color
 # Global variables
 NAMESPACE="career-coach-prod"
 ARGOCD_NAMESPACE="argocd"
+PF_PIDS=()
 
 # Print functions
 print_step() {
@@ -286,46 +287,51 @@ setup_port_forwards() {
         fi
     done
     
-    # Frontend
+    # Frontend -> 3100:80
     if minikube kubectl -- get pods -l app=frontend-prod -n $NAMESPACE -o name | grep -q "pod"; then
         if ! lsof -ti:3100 >/dev/null 2>&1; then
-            minikube kubectl -- port-forward svc/frontend-service 3100:3100 -n $NAMESPACE >/dev/null 2>&1 &
+            minikube kubectl -- port-forward svc/frontend-service 3100:80 -n $NAMESPACE >/dev/null 2>&1 &
+            PF_PIDS+=($!)
             echo $! > /tmp/career-coach-frontend.pid
-            print_success "Frontend port-forward: 3100:3100"
+            print_success "Frontend port-forward: 3100:80"
         fi
     fi
     
-    # Backend (fix port to 4100:5000)
+    # Backend -> 4100:4100
     if minikube kubectl -- get pods -l app=backend-prod -n $NAMESPACE -o name | grep -q "pod"; then
         if ! lsof -ti:4100 >/dev/null 2>&1; then
-            minikube kubectl -- port-forward svc/backend 4100:5000 -n $NAMESPACE >/dev/null 2>&1 &
+            minikube kubectl -- port-forward svc/backend 4100:4100 -n $NAMESPACE >/dev/null 2>&1 &
+            PF_PIDS+=($!)
             echo $! > /tmp/career-coach-backend.pid
-            print_success "Backend port-forward: 4100:5000"
+            print_success "Backend port-forward: 4100:4100"
         fi
     fi
     
-    # AI Service
+    # AI Service -> 5100:5100
     if minikube kubectl -- get pods -l app=ai-service-prod -n $NAMESPACE -o name | grep -q "pod"; then
         if ! lsof -ti:5100 >/dev/null 2>&1; then
             minikube kubectl -- port-forward svc/ai-service 5100:5100 -n $NAMESPACE >/dev/null 2>&1 &
+            PF_PIDS+=($!)
             echo $! > /tmp/career-coach-ai-service.pid
             print_success "AI Service port-forward: 5100:5100"
         fi
     fi
     
-    # Grafana
+    # Grafana -> 3003:3000
     if minikube kubectl -- get pods -l app=grafana -n $NAMESPACE -o name | grep -q "pod"; then
         if ! lsof -ti:3003 >/dev/null 2>&1; then
             minikube kubectl -- port-forward svc/grafana-service 3003:3000 -n $NAMESPACE >/dev/null 2>&1 &
+            PF_PIDS+=($!)
             echo $! > /tmp/career-coach-grafana.pid
             print_success "Grafana port-forward: 3003:3000"
         fi
     fi
     
-    # ArgoCD
+    # ArgoCD -> 18082:443
     if minikube kubectl -- get pods -n $ARGOCD_NAMESPACE -l app.kubernetes.io/name=argocd-server -o name | grep -q "pod"; then
         if ! lsof -ti:18082 >/dev/null 2>&1; then
             minikube kubectl -- port-forward svc/argocd-server 18082:443 -n $ARGOCD_NAMESPACE >/dev/null 2>&1 &
+            PF_PIDS+=($!)
             echo $! > /tmp/career-coach-argocd.pid
             print_success "ArgoCD port-forward: 18082:443"
         fi
@@ -348,6 +354,30 @@ check_backend_health() {
     done
     
     print_info "Backend health check timeout, but proceeding"
+}
+
+# Verify all endpoints are accessible
+verify_endpoints() {
+    print_step "Verifying all endpoints..."
+    
+    local endpoints=(
+        "Frontend:http://localhost:3100"
+        "Backend:http://localhost:4100"
+        "AI Service:http://localhost:5100"
+        "Grafana:http://localhost:3003"
+        "ArgoCD:https://localhost:18082"
+    )
+    
+    for endpoint in "${endpoints[@]}"; do
+        local name=$(echo "$endpoint" | cut -d: -f1)
+        local url=$(echo "$endpoint" | cut -d: -f2-)
+        
+        if curl -s --max-time 5 "$url" >/dev/null 2>&1; then
+            print_success "$name is accessible"
+        else
+            print_info "$name is starting up..."
+        fi
+    done
 }
 
 # Print final access information
@@ -377,13 +407,21 @@ print_access_info() {
     echo -e "${GREEN}========================================${NC}"
 }
 
-# Cleanup function
+# Cleanup function (only called on interrupt)
 cleanup() {
-    print_info "Cleaning up port forwards..."
-    for pid_file in /tmp/career-coach-*.pid; do
-        [ -f "$pid_file" ] && kill -$(cat "$pid_file" 2>/dev/null || true) && rm -f "$pid_file"
+    print_info "Received interrupt signal, cleaning up port forwards..."
+    for pid in "${PF_PIDS[@]}"; do
+        if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
+            kill "$pid" 2>/dev/null || true
+        fi
     done
+    
+    for pid_file in /tmp/career-coach-*.pid; do
+        [ -f "$pid_file" ] && rm -f "$pid_file"
+    done
+    
     print_success "Cleanup completed"
+    exit 0
 }
 
 # Main deployment function
@@ -409,14 +447,19 @@ main() {
     # Health checks
     check_backend_health
     
+    # Verify endpoints
+    verify_endpoints
+    
     # Final output
     print_access_info
     
     print_success "Deployment completed successfully!"
+    print_info "All port-forwards are running in background. Press Ctrl+C to stop."
+    
+    # Keep script running to maintain port-forwards
+    trap cleanup SIGINT SIGTERM
+    wait
 }
-
-# Handle script interruption
-trap cleanup EXIT
 
 # Run main function
 main "$@"
