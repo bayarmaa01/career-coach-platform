@@ -36,9 +36,8 @@ resources:
 - prometheus-service.yaml
 - prometheus-configmap.yaml
 
-commonLabels:
+labels:
   app.kubernetes.io/name: career-coach-platform
-  app.kubernetes.io/component: backend
   app.kubernetes.io/managed-by: kustomize
   app.kubernetes.io/part-of: career-coach-platform
 
