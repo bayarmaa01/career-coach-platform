@@ -4,19 +4,19 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 console.log('Database Config:', {
-  host: process.env.DATABASE_HOST || process.env.DB_HOST || 'localhost',
-  port: parseInt(process.env.DATABASE_PORT || process.env.DB_PORT || '5432'),
-  database: process.env.DATABASE_NAME || process.env.DB_NAME || 'career_coach',
-  user: process.env.DATABASE_USER || process.env.DB_USER || 'postgres',
-  password: process.env.DATABASE_PASSWORD ? '***' : 'not-set'
+  host: process.env.POSTGRES_HOST || process.env.DATABASE_HOST || process.env.DB_HOST || 'localhost',
+  port: parseInt(process.env.POSTGRES_PORT || process.env.DATABASE_PORT || process.env.DB_PORT || '5432'),
+  database: process.env.POSTGRES_DB || process.env.DATABASE_NAME || process.env.DB_NAME || 'career_coach',
+  user: process.env.POSTGRES_USER || process.env.DATABASE_USER || process.env.DB_USER || 'postgres',
+  password: process.env.POSTGRES_PASSWORD || process.env.DATABASE_PASSWORD ? '***' : 'not-set'
 });
 
 const pool = new Pool({
-  host: process.env.DATABASE_HOST || process.env.DB_HOST || 'localhost',
-  port: parseInt(process.env.DATABASE_PORT || process.env.DB_PORT || '5432'),
-  database: process.env.DATABASE_NAME || process.env.DB_NAME || 'career_coach',
-  user: process.env.DATABASE_USER || process.env.DB_USER || 'postgres',
-  password: process.env.DATABASE_PASSWORD || process.env.DB_PASSWORD || 'password',
+  host: process.env.POSTGRES_HOST || process.env.DATABASE_HOST || process.env.DB_HOST || 'localhost',
+  port: parseInt(process.env.POSTGRES_PORT || process.env.DATABASE_PORT || process.env.DB_PORT || '5432'),
+  database: process.env.POSTGRES_DB || process.env.DATABASE_NAME || process.env.DB_NAME || 'career_coach',
+  user: process.env.POSTGRES_USER || process.env.DATABASE_USER || process.env.DB_USER || 'postgres',
+  password: process.env.POSTGRES_PASSWORD || process.env.DATABASE_PASSWORD || process.env.DB_PASSWORD || 'password',
   max: 20,
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 10000, // Increased timeout

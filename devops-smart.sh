@@ -269,7 +269,7 @@ setup_port_forwards() {
     # Frontend -> 3100:3100 (service exposes 3100, container runs on 80)
     if minikube kubectl -- get pods -l app=frontend-prod -n $NAMESPACE -o name | grep -q "pod"; then
         if ! lsof -ti:3100 >/dev/null 2>&1; then
-            minikube kubectl -- port-forward svc/frontend-service 3100:3100 -n $NAMESPACE >/dev/null 2>&1 &
+            minikube kubectl -- port-forward svc/frontend-service 3100:80 -n $NAMESPACE >/dev/null 2>&1 &
             PF_PIDS+=($!)
             echo $! > /tmp/career-coach-frontend.pid
             print_success "Frontend port-forward: 3100:3100"
@@ -279,7 +279,7 @@ setup_port_forwards() {
     # Backend -> 4100:4100 (service exposes 4100, container runs on 5000)
     if minikube kubectl -- get pods -l app=backend-prod -n $NAMESPACE -o name | grep -q "pod"; then
         if ! lsof -ti:4100 >/dev/null 2>&1; then
-            minikube kubectl -- port-forward svc/backend-service 4100:4100 -n $NAMESPACE >/dev/null 2>&1 &
+            minikube kubectl -- port-forward svc/backend-service 4100:5000 -n $NAMESPACE >/dev/null 2>&1 &
             PF_PIDS+=($!)
             echo $! > /tmp/career-coach-backend.pid
             print_success "Backend port-forward: 4100:4100"
@@ -299,7 +299,7 @@ setup_port_forwards() {
     # Grafana -> 3003:3003 (service exposes 3003, container runs on 3000)
     if minikube kubectl -- get pods -l app=grafana -n $NAMESPACE -o name | grep -q "pod"; then
         if ! lsof -ti:3003 >/dev/null 2>&1; then
-            minikube kubectl -- port-forward svc/grafana-service 3003:3003 -n $NAMESPACE >/dev/null 2>&1 &
+            minikube kubectl -- port-forward svc/grafana-service 3003:3000 -n $NAMESPACE >/dev/null 2>&1 &
             PF_PIDS+=($!)
             echo $! > /tmp/career-coach-grafana.pid
             print_success "Grafana port-forward: 3003:3003"

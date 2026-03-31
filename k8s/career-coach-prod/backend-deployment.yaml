@@ -32,7 +32,7 @@ spec:
         - name: PORT
           value: "5000"
         - name: DATABASE_URL
-          value: "postgresql://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@$(POSTGRES_HOST):$(POSTGRES_PORT)/$(POSTGRES_DB)"
+          value: "postgresql://postgres:adminpassword@postgres-service:5432/career_coach_prod"
         - name: POSTGRES_HOST
           valueFrom:
             configMapKeyRef:
