@@ -17,7 +17,6 @@ spec:
         app: grafana
         tier: monitoring
     spec:
-      restartPolicy: Always
       containers:
       - name: grafana
         image: grafana/grafana:latest
@@ -31,6 +30,10 @@ spec:
           value: "admin"
         - name: GF_INSTALL_PLUGINS
           value: "grafana-clock-panel,grafana-simple-json-datasource"
+        - name: GF_SERVER_DOMAIN
+          value: "localhost"
+        - name: GF_SERVER_ROOT_URL
+          value: "http://localhost:3003"
         resources:
           requests:
             memory: "128Mi"
@@ -45,28 +48,12 @@ spec:
           initialDelaySeconds: 60
           periodSeconds: 30
           timeoutSeconds: 10
-          failureThreshold: 10
+          failureThreshold: 3
         readinessProbe:
           httpGet:
             path: /
             port: 3000
           initialDelaySeconds: 30
           periodSeconds: 10
-          timeoutSeconds: 10
-          failureThreshold: 10
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: grafana-service
-  namespace: career-coach-prod
-  labels:
-    app: grafana
-    tier: monitoring
-spec:
-  selector:
-    app: grafana
-  ports:
-  - port: 3003
-    targetPort: 3000
-  type: ClusterIP
+          timeoutSeconds: 5
+          failureThreshold: 3

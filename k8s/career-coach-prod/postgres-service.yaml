@@ -3,10 +3,14 @@ kind: Service
 metadata:
   name: postgres-service
   namespace: career-coach-prod
-spec:
-  selector:
+  labels:
     app: postgres
+    tier: database
+spec:
+  type: ClusterIP
   ports:
   - port: 5432
     targetPort: 5432
-  type: ClusterIP
+    protocol: TCP
+  selector:
+    app: postgres

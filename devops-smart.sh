@@ -133,55 +133,21 @@ build_images() {
     print_success "All images built successfully"
 }
 
-# Create namespace and secrets only if they don't exist
+# Setup infrastructure (now handled by Kustomize)
 setup_infrastructure() {
     print_step "Setting up infrastructure..."
     
-    # Namespace
-    minikube kubectl -- apply -f k8s/namespace.yaml 2>/dev/null || true
-    
-    # Secrets (only if not exists)
-    if ! minikube kubectl -- get secret app-secrets -n $NAMESPACE >/dev/null 2>&1; then
-        print_info "Creating secrets..."
-        minikube kubectl -- apply -f k8s/secrets.yaml
-    else
-        print_info "Secrets already exist"
-    fi
-    
-    # ConfigMaps
-    minikube kubectl -- apply -f k8s/configmap.yaml
-    
-    print_success "Infrastructure setup completed"
+    # Infrastructure is now deployed via Kustomize in deploy_core_services
+    print_success "Infrastructure will be deployed with Kustomize"
 }
 
-# Deploy core services
+# Deploy core services using Kustomize
 deploy_core_services() {
     print_step "Deploying core services..."
     
-    # PostgreSQL
-    print_info "Deploying PostgreSQL..."
-    minikube kubectl -- apply -f k8s/postgres-statefulset.yaml
-    minikube kubectl -- apply -f k8s/postgres-service.yaml
-    
-    # Redis
-    print_info "Deploying Redis..."
-    minikube kubectl -- apply -f k8s/redis-deployment-prod.yaml
-    minikube kubectl -- apply -f k8s/redis-service.yaml
-    
-    # Backend
-    print_info "Deploying Backend..."
-    minikube kubectl -- apply -f k8s/backend-deployment-prod.yaml
-    minikube kubectl -- apply -f k8s/backend-service.yaml
-    
-    # AI Service
-    print_info "Deploying AI Service..."
-    minikube kubectl -- apply -f k8s/ai-service-deployment-prod.yaml
-    minikube kubectl -- apply -f k8s/ai-service-service.yaml
-    
-    # Frontend
-    print_info "Deploying Frontend..."
-    minikube kubectl -- apply -f k8s/frontend-deployment-prod.yaml
-    minikube kubectl -- apply -f k8s/frontend-service.yaml
+    # Use Kustomize to deploy all production resources
+    print_info "Deploying production environment with Kustomize..."
+    minikube kubectl -- apply -k k8s/career-coach-prod/
     
     print_success "Core services deployed"
 }
@@ -190,7 +156,7 @@ deploy_core_services() {
 wait_for_core_services() {
     print_step "Waiting for core services to be ready..."
     
-    local services=("postgres" "redis-prod" "backend-prod" "frontend-prod" "ai-service-prod")
+    local services=("postgres" "redis-prod" "backend-prod" "frontend-prod" "ai-service-prod" "prometheus")
     local max_wait=180
     local wait_interval=5
     local waited=0
@@ -279,25 +245,10 @@ setup_argocd() {
     fi
 }
 
-# Setup Grafana automatically
+# Grafana setup is now handled by Kustomize
 setup_grafana() {
-    print_step "Setting up Grafana..."
-    
-    # Deploy Grafana
-    minikube kubectl -- apply -f k8s/grafana-deployment.yaml 2>/dev/null || true
-    
-    # Wait for Grafana (non-blocking)
-    local grafana_wait=30
-    local grafana_waited=0
-    while [ $grafana_waited -lt $grafana_wait ]; do
-        local grafana_ready=$(minikube kubectl -- get pods -l app=grafana -n $NAMESPACE -o jsonpath='{.items[0].status.containerStatuses[0].ready}' 2>/dev/null || echo "false")
-        if [ "$grafana_ready" = "true" ]; then
-            print_success "Grafana is ready"
-            break
-        fi
-        sleep 2
-        grafana_waited=$((grafana_waited + 2))
-    done
+    print_step "Grafana is deployed via Kustomize..."
+    print_success "Grafana deployment included in Kustomize"
 }
 
 # Setup port forwards with conflict handling
@@ -355,6 +306,16 @@ setup_port_forwards() {
         fi
     fi
     
+    # Prometheus -> 9090:9090
+    if minikube kubectl -- get pods -l app=prometheus -n $NAMESPACE -o name | grep -q "pod"; then
+        if ! lsof -ti:9090 >/dev/null 2>&1; then
+            minikube kubectl -- port-forward svc/prometheus-service 9090:9090 -n $NAMESPACE >/dev/null 2>&1 &
+            PF_PIDS+=($!)
+            echo $! > /tmp/career-coach-prometheus.pid
+            print_success "Prometheus port-forward: 9090:9090"
+        fi
+    fi
+    
     # ArgoCD -> 18082:443
     if minikube kubectl -- get pods -n $ARGOCD_NAMESPACE -l app.kubernetes.io/name=argocd-server -o name | grep -q "pod"; then
         if ! lsof -ti:18082 >/dev/null 2>&1; then
@@ -393,6 +354,7 @@ verify_endpoints() {
         "Backend:http://localhost:4100/api/health"
         "AI Service:http://localhost:5100/health"
         "Grafana:http://localhost:3003/login"
+        "Prometheus:http://localhost:9090/-/healthy"
         "ArgoCD:https://localhost:18082"
     )
     
@@ -424,6 +386,8 @@ print_access_info() {
     echo -e "${YELLOW}Grafana:${NC}    http://localhost:3003"
     echo -e "${YELLOW}Username:${NC}   admin"
     echo -e "${YELLOW}Password:${NC}   admin"
+    echo ""
+    echo -e "${YELLOW}Prometheus:${NC} http://localhost:9090"
     echo ""
     echo -e "${YELLOW}ArgoCD:${NC}     https://localhost:18082"
     echo -e "${YELLOW}Username:${NC}   admin"
@@ -488,6 +452,7 @@ main() {
     local backend_status=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:4100/api/health 2>/dev/null || echo "000")
     local ai_status=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:5100/health 2>/dev/null || echo "000")
     local grafana_status=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3003/login 2>/dev/null || echo "000")
+    local prometheus_status=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:9090/-/healthy 2>/dev/null || echo "000")
     local argocd_status=$(curl -s -o /dev/null -w "%{http_code}" -k https://localhost:18082 2>/dev/null || echo "000")
     
     # Report final status
@@ -497,10 +462,11 @@ main() {
     echo -e "Backend:   ${GREEN}$backend_status${NC} (http://localhost:4100/api/health)"
     echo -e "AI Service:${GREEN}$ai_status${NC} (http://localhost:5100/health)"
     echo -e "Grafana:   ${GREEN}$grafana_status${NC} (http://localhost:3003/login)"
+    echo -e "Prometheus:${GREEN}$prometheus_status${NC} (http://localhost:9090/-/healthy)"
     echo -e "ArgoCD:    ${GREEN}$argocd_status${NC} (https://localhost:18082)"
     echo ""
     
-    if [ "$frontend_status" = "200" ] && [ "$backend_status" = "200" ] && [ "$ai_status" = "200" ] && [ "$grafana_status" = "200" ] && [ "$argocd_status" = "200" ]; then
+    if [ "$frontend_status" = "200" ] && [ "$backend_status" = "200" ] && [ "$ai_status" = "200" ] && [ "$grafana_status" = "200" ] && [ "$prometheus_status" = "200" ] && [ "$argocd_status" = "200" ]; then
         print_success "🎉 ALL SERVICES ARE WORKING PERFECTLY!"
     else
         print_info "Most services are working. Some may need additional time."

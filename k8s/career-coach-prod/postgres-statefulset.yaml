@@ -3,8 +3,11 @@ kind: StatefulSet
 metadata:
   name: postgres
   namespace: career-coach-prod
+  labels:
+    app: postgres
+    tier: database
 spec:
-  serviceName: postgres
+  serviceName: postgres-service
   replicas: 1
   selector:
     matchLabels:
@@ -13,17 +16,11 @@ spec:
     metadata:
       labels:
         app: postgres
+        tier: database
     spec:
-      initContainers:
-      - name: init-postgres
-        image: busybox:1.35
-        command: ['sh', '-c', 'rm -rf /var/lib/postgresql/data/* || true']
-        volumeMounts:
-        - name: postgres-storage
-          mountPath: /var/lib/postgresql/data
       containers:
       - name: postgres
-        image: postgres:15-alpine
+        image: postgres:15
         ports:
         - containerPort: 5432
         env:
@@ -59,26 +56,23 @@ spec:
         livenessProbe:
           exec:
             command:
-            - /bin/sh
-            - -c
-            - "pg_isready -U postgres -h localhost"
-          initialDelaySeconds: 60
-          periodSeconds: 30
-          timeoutSeconds: 10
-          failureThreshold: 10
+            - pg_isready
+            - -U
+            - postgres
+          initialDelaySeconds: 30
+          periodSeconds: 10
         readinessProbe:
           exec:
             command:
-            - /bin/sh
-            - -c
-            - "pg_isready -U postgres -h localhost"
-          initialDelaySeconds: 30
-          periodSeconds: 10
-          timeoutSeconds: 10
-          failureThreshold: 10
+            - pg_isready
+            - -U
+            - postgres
+          initialDelaySeconds: 5
+          periodSeconds: 5
       volumes:
       - name: postgres-storage
-        emptyDir: {}
+        persistentVolumeClaim:
+          claimName: postgres-pvc
       - name: init-scripts
         configMap:
-          name: postgres-init
+          name: postgres-init-config

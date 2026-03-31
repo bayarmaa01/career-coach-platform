@@ -17,7 +17,6 @@ spec:
         app: ai-service-prod
         tier: ai
     spec:
-      restartPolicy: Always
       containers:
       - name: ai-service
         image: ai-service-prod:latest
@@ -26,18 +25,24 @@ spec:
         - containerPort: 5100
         env:
         - name: PYTHONPATH
-          value: "/app"
+          value: /app
         - name: REDIS_HOST
-          value: "redis-service"
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: REDIS_HOST
         - name: REDIS_PORT
-          value: "6379"
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: REDIS_PORT
         - name: REDIS_PASSWORD
           valueFrom:
             secretKeyRef:
               name: app-secrets
               key: REDIS_PASSWORD
         - name: MODEL_CACHE_DIR
-          value: "/app/models"
+          value: /app/models
         - name: LOG_LEVEL
           valueFrom:
             configMapKeyRef:
@@ -45,11 +50,6 @@ spec:
               key: LOG_LEVEL
         - name: DISABLE_SPACY
           value: "true"
-        volumeMounts:
-        - name: uploads-volume
-          mountPath: /app/uploads
-        - name: models-volume
-          mountPath: /app/models
         resources:
           requests:
             memory: "256Mi"
@@ -57,6 +57,11 @@ spec:
           limits:
             memory: "512Mi"
             cpu: "300m"
+        volumeMounts:
+        - name: uploads-volume
+          mountPath: /app/uploads
+        - name: models-volume
+          mountPath: /app/models
         livenessProbe:
           httpGet:
             path: /health
@@ -64,34 +69,17 @@ spec:
           initialDelaySeconds: 90
           periodSeconds: 30
           timeoutSeconds: 10
-          failureThreshold: 10
+          failureThreshold: 3
         readinessProbe:
           httpGet:
             path: /health
             port: 5100
           initialDelaySeconds: 60
           periodSeconds: 10
-          timeoutSeconds: 10
-          failureThreshold: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
       volumes:
       - name: uploads-volume
         emptyDir: {}
       - name: models-volume
         emptyDir: {}
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: ai-service
-  namespace: career-coach-prod
-  labels:
-    app: ai-service-prod
-    tier: ai
-spec:
-  selector:
-    app: ai-service-prod
-  ports:
-  - port: 5100
-    targetPort: 5100
-    nodePort: 31002
-  type: NodePort
