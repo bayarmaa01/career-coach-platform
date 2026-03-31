@@ -276,7 +276,7 @@ setup_port_forwards() {
         fi
     fi
     
-    # Backend -> 4100:4100
+    # Backend -> 4100:4100 (service exposes 4100, container runs on 5000)
     if minikube kubectl -- get pods -l app=backend-prod -n $NAMESPACE -o name | grep -q "pod"; then
         if ! lsof -ti:4100 >/dev/null 2>&1; then
             minikube kubectl -- port-forward svc/backend-service 4100:4100 -n $NAMESPACE >/dev/null 2>&1 &
@@ -286,7 +286,7 @@ setup_port_forwards() {
         fi
     fi
     
-    # AI Service -> 5100:5100 (service and container both run on 5100)
+    # AI Service -> 5100:5100 (service exposes 5100, container runs on 5100)
     if minikube kubectl -- get pods -l app=ai-service-prod -n $NAMESPACE -o name | grep -q "pod"; then
         if ! lsof -ti:5100 >/dev/null 2>&1; then
             minikube kubectl -- port-forward svc/ai-service 5100:5100 -n $NAMESPACE >/dev/null 2>&1 &
