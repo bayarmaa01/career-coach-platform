@@ -1,7 +1,8 @@
 #!/bin/bash
 
-# 🚀 Career Coach Platform - Production DevOps System
-# ONE-COMMAND deployment solution - Senior DevOps Engineer
+# 🚀 Career Coach Platform - SMART DevOps System
+# Auto-detects environment, switches between FAST/FULL modes
+# Senior DevOps Engineer - Production-Grade Automation
 
 set -euo pipefail
 
@@ -10,6 +11,7 @@ RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
+CYAN='\033[0;36m'
 NC='\033[0m' # No Color
 
 # Configuration
@@ -18,34 +20,68 @@ TIMEOUT_SECONDS=600
 HEALTH_CHECK_RETRIES=60
 HEALTH_CHECK_DELAY=5
 
+# Mode detection
+MODE="auto"  # Default: auto-detect
+FAST_MODE=false
+FULL_MODE=false
+
+# Resource detection
+MINIKUBE_RUNNING=false
+IMAGES_EXIST=false
+CLUSTER_READY=false
+
 # Port-forward PIDs array
 PF_PIDS=()
 
-# Cleanup function
-cleanup() {
-    echo -e "\n${YELLOW}[INFO]${NC} Cleaning up port forwards..."
-    for pid in "${PF_PIDS[@]}"; do
-        if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
-            kill "$pid" 2>/dev/null || true
-        fi
+# Parse command line arguments
+parse_args() {
+    while [[ $# -gt 0 ]]; do
+        case $1 in
+            --fast)
+                MODE="fast"
+                FAST_MODE=true
+                print_info "FAST mode enabled"
+                ;;
+            --full)
+                MODE="full"
+                FULL_MODE=true
+                print_info "FULL mode enabled"
+                ;;
+            --help|-h)
+                show_help
+                exit 0
+                ;;
+            *)
+                print_error "Unknown option: $1"
+                show_help
+                exit 1
+                ;;
+        esac
+        shift
     done
-    
-    # Clean up PID files
-    for pid_file in /tmp/career-coach-*.pid; do
-        if [ -f "$pid_file" ]; then
-            pid=$(cat "$pid_file" 2>/dev/null || echo "")
-            if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
-                kill "$pid" 2>/dev/null || true
-            fi
-            rm -f "$pid_file"
-        fi
-    done
-    
-    echo -e "${GREEN}[SUCCESS]${NC} Cleanup completed"
 }
 
-# Set trap for cleanup
-trap cleanup EXIT INT TERM
+# Show help
+show_help() {
+    echo -e "${GREEN}🚀 Career Coach Platform - SMART DevOps System${NC}"
+    echo -e "${CYAN}Usage:${NC} $0 [OPTIONS]"
+    echo ""
+    echo -e "${YELLOW}Options:${NC}"
+    echo -e "  ${CYAN}--fast${NC}         Fast mode (skip rebuilds, reuse cluster)"
+    echo -e "  ${CYAN}--full${NC}         Full mode (complete rebuild from scratch)"
+    echo -e "  ${CYAN}--auto${NC}         Auto-detect mode (default)"
+    echo -e "  ${CYAN}--help, -h${NC}    Show this help message"
+    echo ""
+    echo -e "${YELLOW}Mode Behavior:${NC}"
+    echo -e "  ${CYAN}Auto:${NC}      Detects cluster state, chooses optimal strategy"
+    echo -e "  ${CYAN}Fast:${NC}      Reuse existing cluster, skip builds if possible"
+    echo -e "  ${CYAN}Full:${NC}      Complete rebuild from scratch"
+    echo ""
+    echo -e "${BLUE}Examples:${NC}"
+    echo -e "  $0 --fast    # Quick deployment"
+    echo -e "  $0 --full    # Complete rebuild"
+    echo -e "  $0            # Auto-detect optimal mode"
+}
 
 # Print functions
 print_success() {
@@ -64,15 +100,74 @@ print_error() {
     echo -e "${RED}[ERROR]${NC} $1"
 }
 
-# Check if Minikube is running
+print_mode() {
+    echo -e "${CYAN}[MODE:${NC} ${MODE^^} ${NC}"
+}
+
+# Smart environment detection
+detect_environment() {
+    print_info "Detecting environment state..."
+    
+    # Check Minikube
+    if minikube status >/dev/null 2>&1; then
+        MINIKUBE_RUNNING=true
+        print_success "Minikube is running"
+    else
+        print_warning "Minikube is not running"
+    fi
+    
+    # Check images exist
+    local images_exist=true
+    if docker images | grep -q "backend-prod\|frontend-prod\|ai-service-prod"; then
+        IMAGES_EXIST=true
+        print_success "Docker images exist"
+    else
+        images_exist=false
+        print_warning "Docker images missing"
+    fi
+    
+    # Check cluster readiness
+    if minikube kubectl -- get namespace $NAMESPACE >/dev/null 2>&1; then
+        CLUSTER_READY=true
+        print_success "Cluster is ready"
+    else
+        print_warning "Cluster not ready"
+    fi
+}
+
+# Auto-decide optimal mode
+auto_decide_mode() {
+    if [ "$MODE" != "auto" ]; then
+        return 0
+    fi
+    
+    print_info "Auto-deciding optimal deployment mode..."
+    
+    if [ "$MINIKUBE_RUNNING" = true ] && [ "$IMAGES_EXIST" = true ] && [ "$CLUSTER_READY" = true ]; then
+        MODE="fast"
+        FAST_MODE=true
+        print_success "Optimal: FAST mode (cluster ready, images exist)"
+    else
+        MODE="full"
+        FULL_MODE=true
+        print_warning "Optimal: FULL mode (needs setup)"
+    fi
+}
+
+# Check if Minikube is running (with smart handling)
 check_minikube() {
-    print_info "Checking Minikube status..."
+    if [ "$FAST_MODE" = true ] && [ "$MINIKUBE_RUNNING" = true ]; then
+        print_success "Minikube ready (FAST mode)"
+        return 0
+    fi
+    
+    print_info "Ensuring Minikube is running..."
     
     if ! minikube status >/dev/null 2>&1; then
-        print_info "Starting Minikube..."
+        print_info "Starting Minikube with optimized settings..."
         minikube start --driver=docker --cpus=4 --memory=4096 --disk-size=20g
     else
-        print_info "Minikube is already running"
+        print_success "Minikube is already running"
     fi
     
     # Verify Minikube is ready
@@ -90,51 +185,78 @@ check_minikube() {
     return 1
 }
 
-# Build Docker images
+# Smart Docker builds
 build_images() {
-    print_info "Building Docker images..."
+    if [ "$FAST_MODE" = true ] && [ "$IMAGES_EXIST" = true ]; then
+        print_success "Docker images already exist (FAST mode)"
+        return 0
+    fi
     
-    # Build backend
+    print_info "Building Docker images in parallel..."
+    
+    # Build in parallel for speed
+    local pids=()
+    
+    # Backend
     if [ -d "backend" ]; then
-        print_info "Building backend image..."
-        cd backend
-        docker build -t backend-prod:latest . || {
-            print_error "Backend build failed"
-            return 1
-        }
-        cd ..
-        print_success "Backend image built"
+        (
+            print_info "Building backend image..."
+            cd backend
+            docker build -t backend-prod:latest . || {
+                print_error "Backend build failed"
+                exit 1
+            }
+            cd ..
+            print_success "Backend image built"
+        ) &
+        pids+=($!)
     fi
     
-    # Build frontend
+    # Frontend
     if [ -d "frontend" ]; then
-        print_info "Building frontend image..."
-        cd frontend
-        docker build -t frontend-prod:latest . || {
-            print_error "Frontend build failed"
-            return 1
-        }
-        cd ..
-        print_success "Frontend image built"
+        (
+            print_info "Building frontend image..."
+            cd frontend
+            docker build -t frontend-prod:latest . || {
+                print_error "Frontend build failed"
+                exit 1
+            }
+            cd ..
+            print_success "Frontend image built"
+        ) &
+        pids+=($!)
     fi
     
-    # Build AI service
+    # AI Service
     if [ -d "ai-service" ]; then
-        print_info "Building AI service image..."
-        cd ai-service
-        docker build -t ai-service-prod:latest . || {
-            print_error "AI service build failed"
-            return 1
-        }
-        cd ..
-        print_success "AI service image built"
+        (
+            print_info "Building AI service image..."
+            cd ai-service
+            docker build -t ai-service-prod:latest . || {
+                print_error "AI service build failed"
+                exit 1
+            }
+            cd ..
+            print_success "AI service image built"
+        ) &
+        pids+=($!)
     fi
+    
+    # Wait for all builds
+    for pid in "${pids[@]}"; do
+        wait $pid
+    done
     
     print_success "All images built successfully"
 }
 
-# Clean up broken deployments if needed
+# Smart cleanup (only in FULL mode)
 cleanup_broken_deployments() {
+    if [ "$FAST_MODE" = true ]; then
+        print_success "Skipping cleanup (FAST mode)"
+        return 0
+    fi
+    
     print_info "Checking for broken deployments..."
     
     # Check if there are any deployments with selector issues
@@ -156,25 +278,36 @@ cleanup_broken_deployments() {
     fi
 }
 
-# Deploy infrastructure
+# Deploy infrastructure (smart)
 deploy_infrastructure() {
+    print_mode
     print_info "Deploying infrastructure with Kustomize..."
     
     # Create namespace if it doesn't exist
     minikube kubectl -- create namespace $NAMESPACE --dry-run=client -o yaml | minikube kubectl -- apply -f -
     
     # Apply all manifests
-    minikube kubectl -- apply -k k8s/career-coach-prod/ || {
+    if ! minikube kubectl -- apply -k k8s/career-coach-prod/; then
         print_error "Infrastructure deployment failed"
         return 1
-    }
+    fi
     
     print_success "Infrastructure deployed successfully"
 }
 
-# Wait for PostgreSQL to be ready
+# Smart wait times based on mode
+get_wait_timeout() {
+    if [ "$FAST_MODE" = true ]; then
+        echo 60  # Shorter timeout for fast mode
+    else
+        echo 180  # Longer timeout for full mode
+    fi
+}
+
+# Wait for PostgreSQL to be ready (with smart timeout)
 wait_for_postgres() {
-    print_info "Waiting for PostgreSQL to be ready..."
+    local timeout=$(get_wait_timeout)
+    print_info "Waiting for PostgreSQL to be ready (timeout: ${timeout}s)..."
     
     local retries=60
     while [ $retries -gt 0 ]; do
@@ -190,14 +323,14 @@ wait_for_postgres() {
     return 1
 }
 
-# Wait for all services to be ready
+# Wait for all services to be ready (with smart timeout)
 wait_for_services() {
-    print_info "Waiting for all services to be ready..."
+    local timeout=$(get_wait_timeout)
+    print_info "Waiting for all services to be ready (timeout: ${timeout}s)..."
     
     local services=("postgres" "redis-prod" "backend-prod" "frontend-prod" "ai-service-prod" "grafana" "prometheus")
     local total_services=${#services[@]}
     local ready_services=0
-    local timeout=300
     local start_time=$(date +%s)
     
     while [ $ready_services -lt $total_services ]; do
@@ -221,7 +354,7 @@ wait_for_services() {
         
         if [ $ready_services -lt $total_services ]; then
             echo -ne "\r${BLUE}[INFO]${NC} Services ready: $ready_services/$total_services (${elapsed}s)"
-            sleep 5
+            sleep 3  # Faster polling in fast mode
         fi
     done
     
@@ -229,7 +362,7 @@ wait_for_services() {
     print_info "Services ready: $ready_services/$total_services"
 }
 
-# Setup port forwards
+# Setup port forwards (with smart restart)
 setup_port_forwards() {
     print_info "Setting up port forwards..."
     
@@ -311,11 +444,11 @@ cleanup_port_forward_pids() {
     done
 }
 
-# Health check function
+# Smart health check with retry
 health_check() {
     local url=$1
-    local retries=$2
-    local delay=$3
+    local retries=${2:-30}  # Default to 30 retries
+    local delay=${3:-3}       # Default to 3 seconds
     
     local count=0
     while [ $count -lt $retries ]; do
@@ -341,6 +474,9 @@ verify_endpoints() {
         "https://localhost:18082|ArgoCD"
     )
     
+    local success_count=0
+    local total_endpoints=${#endpoints[@]}
+    
     for endpoint_info in "${endpoints[@]}"; do
         local url=$(echo "$endpoint_info" | cut -d'|' -f1)
         local name=$(echo "$endpoint_info" | cut -d'|' -f2)
@@ -348,10 +484,14 @@ verify_endpoints() {
         print_info "Checking $name..."
         if health_check "$url" $HEALTH_CHECK_RETRIES $HEALTH_CHECK_DELAY; then
             print_success "$name is accessible"
+            ((success_count++))
         else
             print_warning "$name is starting up..."
         fi
     done
+    
+    echo ""
+    print_info "Endpoints accessible: $success_count/$total_endpoints"
 }
 
 # Print final output
@@ -360,6 +500,8 @@ print_final_output() {
     echo -e "${GREEN}========================================${NC}"
     echo -e "${GREEN}🚀 Career Coach Platform is running!${NC}"
     echo -e "${GREEN}========================================${NC}"
+    echo ""
+    echo -e "${CYAN}Mode:${NC} ${MODE^^} ${NC}"
     echo ""
     echo -e "${BLUE}🌐 Application URLs:${NC}"
     echo -e "${YELLOW}Frontend:${NC}   http://localhost:3100"
@@ -381,6 +523,7 @@ print_final_output() {
     echo ""
     echo -e "${BLUE}📋 System Health:${NC}"
     echo -e "  • Namespace: ${YELLOW}$NAMESPACE${NC}"
+    echo -e "  • Mode: ${YELLOW}${MODE^^}${NC}"
     echo -e "  • All port-forwards: ${YELLOW}Running${NC}"
     echo -e "  • Services: ${YELLOW}Healthy${NC}"
     echo ""
@@ -388,16 +531,52 @@ print_final_output() {
     echo -e "  • View pods:     ${YELLOW}minikube kubectl -- get pods -n $NAMESPACE${NC}"
     echo -e "  • Stop services: ${YELLOW}pkill -f port-forward${NC}"
     echo -e "  • Minikube dashboard: ${YELLOW}minikube dashboard${NC}"
+    echo -e "  • Restart: ${YELLOW}$0 --fast${NC} or ${YELLOW}$0 --full${NC}"
     echo ""
 }
 
+# Cleanup function
+cleanup() {
+    echo -e "\n${YELLOW}[INFO]${NC} Cleaning up port forwards..."
+    for pid in "${PF_PIDS[@]}"; do
+        if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
+            kill "$pid" 2>/dev/null || true
+        fi
+    done
+    
+    # Clean up PID files
+    for pid_file in /tmp/career-coach-*.pid; do
+        if [ -f "$pid_file" ]; then
+            pid=$(cat "$pid_file" 2>/dev/null || echo "")
+            if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
+                kill "$pid" 2>/dev/null || true
+            fi
+            rm -f "$pid_file"
+        fi
+    done
+    
+    echo -e "${GREEN}[SUCCESS]${NC} Cleanup completed"
+}
+
+# Set trap for cleanup
+trap cleanup EXIT INT TERM
+
 # Main function
 main() {
-    echo -e "${GREEN}🚀 Career Coach Platform - Production DevOps System${NC}"
+    echo -e "${GREEN}🚀 Career Coach Platform - SMART DevOps System${NC}"
     echo -e "${GREEN}========================================${NC}"
     echo ""
     
-    # Execute all steps
+    # Parse arguments
+    parse_args "$@"
+    
+    # Detect environment state
+    detect_environment
+    
+    # Auto-decide mode if needed
+    auto_decide_mode
+    
+    # Execute deployment pipeline
     check_minikube || exit 1
     build_images || exit 1
     cleanup_broken_deployments
@@ -410,18 +589,23 @@ main() {
     
     print_info "Keeping port-forwards alive. Press Ctrl+C to stop."
     
-    # Keep script running
+    # Keep script running with smart monitoring
     while true; do
         sleep 10
         
         # Restart any dead port-forwards
+        local dead_pids=()
         for pid in "${PF_PIDS[@]}"; do
             if [ -n "$pid" ] && ! kill -0 "$pid" 2>/dev/null; then
                 print_warning "Port-forward process $pid died, restarting..."
-                setup_port_forwards
-                break
+                dead_pids+=($pid)
             fi
         done
+        
+        # Restart port-forwards if any died
+        if [ ${#dead_pids[@]} -gt 0 ]; then
+            setup_port_forwards
+        fi
     done
 }
 
