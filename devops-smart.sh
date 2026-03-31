@@ -290,7 +290,7 @@ setup_port_forwards() {
     # Frontend -> 3100:80
     if minikube kubectl -- get pods -l app=frontend-prod -n $NAMESPACE -o name | grep -q "pod"; then
         if ! lsof -ti:3100 >/dev/null 2>&1; then
-            minikube kubectl -- port-forward svc/frontend-service 3100:80 -n $NAMESPACE >/dev/null 2>&1 &
+            minikube kubectl -- port-forward svc/frontend 3100:80 -n $NAMESPACE >/dev/null 2>&1 &
             PF_PIDS+=($!)
             echo $! > /tmp/career-coach-frontend.pid
             print_success "Frontend port-forward: 3100:80"
@@ -458,7 +458,10 @@ main() {
     
     # Keep script running to maintain port-forwards
     trap cleanup SIGINT SIGTERM
-    wait
+    print_info "Keeping port-forwards alive. Press Ctrl+C to stop."
+    while true; do
+        sleep 1
+    done
 }
 
 # Run main function
