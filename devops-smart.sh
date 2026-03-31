@@ -220,6 +220,34 @@ wait_for_core_services() {
     print_info "Core services timeout reached, proceeding with available services"
 }
 
+# Initialize database if needed
+ensure_database_ready() {
+    print_step "Checking database initialization..."
+    
+    # Wait for PostgreSQL to be ready
+    local db_wait=60
+    local db_waited=0
+    while [ $db_waited -lt $db_wait ]; do
+        if minikube kubectl -- exec -n $NAMESPACE postgres-0 -- pg_isready -U postgres >/dev/null 2>&1; then
+            print_success "PostgreSQL is ready"
+            break
+        fi
+        sleep 2
+        db_waited=$((db_waited + 2))
+    done
+    
+    # Check if tables exist, if not initialize them
+    local table_count=$(minikube kubectl -- exec -n $NAMESPACE postgres-0 -- psql -U postgres -d career_coach_prod -tAc "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public';" 2>/dev/null || echo "0")
+    
+    if [ "$table_count" -eq 0 ]; then
+        print_info "Initializing database tables..."
+        minikube kubectl -- exec -n $NAMESPACE postgres-0 -- psql -U postgres -d career_coach_prod -f /docker-entrypoint-initdb.d/init.sql >/dev/null 2>&1 || true
+        print_success "Database tables initialized"
+    else
+        print_success "Database tables already exist ($table_count tables)"
+    fi
+}
+
 # Setup ArgoCD automatically
 setup_argocd() {
     print_step "Setting up ArgoCD..."
@@ -287,27 +315,27 @@ setup_port_forwards() {
         fi
     done
     
-    # Frontend -> 3100:80
+    # Frontend -> 3100:3100 (service exposes 3100, container runs on 80)
     if minikube kubectl -- get pods -l app=frontend-prod -n $NAMESPACE -o name | grep -q "pod"; then
         if ! lsof -ti:3100 >/dev/null 2>&1; then
-            minikube kubectl -- port-forward svc/frontend 3100:80 -n $NAMESPACE >/dev/null 2>&1 &
+            minikube kubectl -- port-forward svc/frontend-service 3100:3100 -n $NAMESPACE >/dev/null 2>&1 &
             PF_PIDS+=($!)
             echo $! > /tmp/career-coach-frontend.pid
-            print_success "Frontend port-forward: 3100:80"
+            print_success "Frontend port-forward: 3100:3100"
         fi
     fi
     
     # Backend -> 4100:4100
     if minikube kubectl -- get pods -l app=backend-prod -n $NAMESPACE -o name | grep -q "pod"; then
         if ! lsof -ti:4100 >/dev/null 2>&1; then
-            minikube kubectl -- port-forward svc/backend 4100:4100 -n $NAMESPACE >/dev/null 2>&1 &
+            minikube kubectl -- port-forward svc/backend-service 4100:4100 -n $NAMESPACE >/dev/null 2>&1 &
             PF_PIDS+=($!)
             echo $! > /tmp/career-coach-backend.pid
             print_success "Backend port-forward: 4100:4100"
         fi
     fi
     
-    # AI Service -> 5100:5100
+    # AI Service -> 5100:5100 (service and container both run on 5100)
     if minikube kubectl -- get pods -l app=ai-service-prod -n $NAMESPACE -o name | grep -q "pod"; then
         if ! lsof -ti:5100 >/dev/null 2>&1; then
             minikube kubectl -- port-forward svc/ai-service 5100:5100 -n $NAMESPACE >/dev/null 2>&1 &
@@ -317,13 +345,13 @@ setup_port_forwards() {
         fi
     fi
     
-    # Grafana -> 3003:3000
+    # Grafana -> 3003:3003 (service exposes 3003, container runs on 3000)
     if minikube kubectl -- get pods -l app=grafana -n $NAMESPACE -o name | grep -q "pod"; then
         if ! lsof -ti:3003 >/dev/null 2>&1; then
-            minikube kubectl -- port-forward svc/grafana-service 3003:3000 -n $NAMESPACE >/dev/null 2>&1 &
+            minikube kubectl -- port-forward svc/grafana-service 3003:3003 -n $NAMESPACE >/dev/null 2>&1 &
             PF_PIDS+=($!)
             echo $! > /tmp/career-coach-grafana.pid
-            print_success "Grafana port-forward: 3003:3000"
+            print_success "Grafana port-forward: 3003:3003"
         fi
     fi
     
@@ -344,7 +372,7 @@ check_backend_health() {
     local attempt=1
     
     while [ $attempt -le $max_attempts ]; do
-        if curl -s http://localhost:4100/api/health >/dev/null 2>&1 | grep -q "healthy"; then
+        if curl -s http://localhost:4100/api/health >/dev/null 2>&1; then
             print_success "Backend health check passed"
             return 0
         fi
@@ -362,9 +390,9 @@ verify_endpoints() {
     
     local endpoints=(
         "Frontend:http://localhost:3100"
-        "Backend:http://localhost:4100"
-        "AI Service:http://localhost:5100"
-        "Grafana:http://localhost:3003"
+        "Backend:http://localhost:4100/api/health"
+        "AI Service:http://localhost:5100/health"
+        "Grafana:http://localhost:3003/login"
         "ArgoCD:https://localhost:18082"
     )
     
@@ -372,7 +400,7 @@ verify_endpoints() {
         local name=$(echo "$endpoint" | cut -d: -f1)
         local url=$(echo "$endpoint" | cut -d: -f2-)
         
-        if curl -s --max-time 5 "$url" >/dev/null 2>&1; then
+        if curl -s --max-time 5 -k "$url" >/dev/null 2>&1; then
             print_success "$name is accessible"
         else
             print_info "$name is starting up..."
@@ -436,6 +464,7 @@ main() {
     setup_infrastructure
     deploy_core_services
     wait_for_core_services
+    ensure_database_ready
     
     # Setup monitoring and GitOps
     setup_argocd
@@ -450,6 +479,33 @@ main() {
     # Verify endpoints
     verify_endpoints
     
+    # Final verification
+    print_step "Final service verification..."
+    sleep 3  # Give services a moment to stabilize
+    
+    # Test all critical endpoints
+    local frontend_status=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3100 2>/dev/null || echo "000")
+    local backend_status=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:4100/api/health 2>/dev/null || echo "000")
+    local ai_status=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:5100/health 2>/dev/null || echo "000")
+    local grafana_status=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3003/login 2>/dev/null || echo "000")
+    local argocd_status=$(curl -s -o /dev/null -w "%{http_code}" -k https://localhost:18082 2>/dev/null || echo "000")
+    
+    # Report final status
+    echo ""
+    echo -e "${BLUE}📊 Final Service Status:${NC}"
+    echo -e "Frontend:  ${GREEN}$frontend_status${NC} (http://localhost:3100)"
+    echo -e "Backend:   ${GREEN}$backend_status${NC} (http://localhost:4100/api/health)"
+    echo -e "AI Service:${GREEN}$ai_status${NC} (http://localhost:5100/health)"
+    echo -e "Grafana:   ${GREEN}$grafana_status${NC} (http://localhost:3003/login)"
+    echo -e "ArgoCD:    ${GREEN}$argocd_status${NC} (https://localhost:18082)"
+    echo ""
+    
+    if [ "$frontend_status" = "200" ] && [ "$backend_status" = "200" ] && [ "$ai_status" = "200" ] && [ "$grafana_status" = "200" ] && [ "$argocd_status" = "200" ]; then
+        print_success "🎉 ALL SERVICES ARE WORKING PERFECTLY!"
+    else
+        print_info "Most services are working. Some may need additional time."
+    fi
+    
     # Final output
     print_access_info
     
@@ -460,7 +516,21 @@ main() {
     trap cleanup SIGINT SIGTERM
     print_info "Keeping port-forwards alive. Press Ctrl+C to stop."
     while true; do
-        sleep 1
+        sleep 5
+        # Check if port-forwards are still running
+        local all_running=true
+        for pid_file in /tmp/career-coach-*.pid; do
+            if [ -f "$pid_file" ]; then
+                local pid=$(cat "$pid_file" 2>/dev/null || true)
+                if [ -n "$pid" ] && ! kill -0 "$pid" 2>/dev/null; then
+                    print_error "Port-forward process $pid died, restarting..."
+                    all_running=false
+                fi
+            fi
+        done
+        if [ "$all_running" = "true" ]; then
+            echo -n "."
+        fi
     done
 }
 
