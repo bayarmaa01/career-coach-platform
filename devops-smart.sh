@@ -259,10 +259,10 @@ cleanup_broken_deployments() {
     
     print_info "Checking for broken deployments..."
     
-    # Check if there are any deployments with selector issues
-    local broken_deployments=$(minikube kubectl -- get deployments -n $NAMESPACE -o jsonpath='{.items[*].status.readyReplicas}' 2>/dev/null | tr ' ' '\n' | grep -c '^0$' || echo "0")
+    # Simple check for any deployments
+    local deployment_count=$(minikube kubectl -- get deployments -n $NAMESPACE --no-headers 2>/dev/null | wc -l)
     
-    if [ "$broken_deployments" -gt 0 ]; then
+    if [ "$deployment_count" -gt 0 ]; then
         print_warning "Found broken deployments, cleaning up..."
         
         # Delete and recreate problematic deployments
