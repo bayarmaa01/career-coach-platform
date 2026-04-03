@@ -23,10 +23,15 @@ print_error() {
     echo -e "${RED}[ERROR]${NC} $1"
 }
 
+print_warning() {
+    echo -e "${YELLOW}[WARNING]${NC} $1"
+}
+
 # Kill existing port forwards
 cleanup() {
     print_info "Cleaning up existing port forwards..."
     pkill -f "port-forward.*career-coach-prod" || true
+    pkill -f "port-forward.*argocd" || true
     sleep 2
 }
 
@@ -54,10 +59,19 @@ setup_forwards() {
     echo $! > /tmp/grafana.pid
     print_success "Grafana: http://localhost:3003"
     
-    # Prometheus (service port: 9090)
-    minikube kubectl -- port-forward svc/prometheus-service 9090:9090 -n $NAMESPACE &
+    # Prometheus (service port: 9090, use 9091 to avoid WSL conflict)
+    minikube kubectl -- port-forward svc/prometheus-service 9091:9090 -n $NAMESPACE &
     echo $! > /tmp/prometheus.pid
-    print_success "Prometheus: http://localhost:9090"
+    print_success "Prometheus: http://localhost:9091"
+    
+    # ArgoCD (service port: 8080)
+    if minikube kubectl -- get namespace argocd >/dev/null 2>&1; then
+        minikube kubectl -- port-forward svc/argocd-server 18082:8080 -n argocd &
+        echo $! > /tmp/argocd.pid
+        print_success "ArgoCD: http://localhost:18082"
+    else
+        print_warning "ArgoCD not found - skipping ArgoCD port-forward"
+    fi
 }
 
 # Stop all port forwards
@@ -89,11 +103,21 @@ show_status() {
     echo "  Backend:    http://localhost:4100" 
     echo "  AI Service: http://localhost:5100"
     echo "  Grafana:    http://localhost:3003"
-    echo "  Prometheus: http://localhost:9090"
+    echo "  Prometheus: http://localhost:9091"
+    echo "  ArgoCD:     http://localhost:18082"
     echo ""
     
     print_info "Active port-forward processes:"
-    ps aux | grep "port-forward.*career-coach-prod" | grep -v grep || echo "  No active port-forwards found"
+    ps aux | grep "port-forward" | grep -v grep || echo "  No active port-forwards found"
+    
+    echo ""
+    if minikube kubectl -- get namespace argocd >/dev/null 2>&1; then
+        echo "ArgoCD Credentials:"
+        echo "  Username: admin"
+        echo "  Password: $(minikube kubectl -- -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d)"
+    else
+        echo "ArgoCD: Not installed"
+    fi
 }
 
 # Main menu
@@ -112,6 +136,10 @@ case "${1:-start}" in
             if ! pgrep -f "port-forward.*frontend-service" > /dev/null; then
                 print_info "Restarting frontend port-forward..."
                 minikube kubectl -- port-forward svc/frontend-service 3100:3100 -n $NAMESPACE &
+            fi
+            if ! pgrep -f "port-forward.*argocd-server" > /dev/null && minikube kubectl -- get namespace argocd >/dev/null 2>&1; then
+                print_info "Restarting argocd port-forward..."
+                minikube kubectl -- port-forward svc/argocd-server 18082:8080 -n argocd &
             fi
         done
         ;;

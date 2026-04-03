@@ -286,6 +286,20 @@ deploy_infrastructure() {
     # Create namespace if it doesn't exist
     minikube kubectl -- create namespace $NAMESPACE --dry-run=client -o yaml | minikube kubectl -- apply -f -
     
+    # Install ArgoCD if not exists
+    if ! minikube kubectl -- get namespace argocd >/dev/null 2>&1; then
+        print_info "Installing ArgoCD..."
+        minikube kubectl -- create namespace argocd
+        minikube kubectl -- apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+        print_info "Waiting for ArgoCD to be ready..."
+        minikube kubectl -- wait --for=condition=available --timeout=300s deployment/argocd-server -n argocd
+        minikube kubectl -- wait --for=condition=available --timeout=300s deployment/argocd-repo-server -n argocd
+        minikube kubectl -- wait --for=condition=available --timeout=300s deployment/argocd-application-controller -n argocd
+        print_success "ArgoCD installed successfully"
+    else
+        print_success "ArgoCD already exists"
+    fi
+    
     # Apply all manifests
     if ! minikube kubectl -- apply -k k8s/career-coach-prod/; then
         print_error "Infrastructure deployment failed"
@@ -409,23 +423,23 @@ setup_port_forwards() {
         fi
     fi
     
-    # Prometheus -> 9090:9090
+    # Prometheus -> 9091:9090 (use 9091 to avoid WSL conflict)
     if minikube kubectl -- get pods -l app=prometheus -n $NAMESPACE -o name | grep -q "pod"; then
-        if ! lsof -ti:9090 >/dev/null 2>&1; then
-            minikube kubectl -- port-forward svc/prometheus-service 9090:9090 -n $NAMESPACE >/dev/null 2>&1 &
+        if ! lsof -ti:9091 >/dev/null 2>&1; then
+            minikube kubectl -- port-forward svc/prometheus-service 9091:9090 -n $NAMESPACE >/dev/null 2>&1 &
             PF_PIDS+=($!)
             echo $! > /tmp/career-coach-prometheus.pid
-            print_success "Prometheus port-forward: 9090:9090"
+            print_success "Prometheus port-forward: 9091:9090"
         fi
     fi
     
-    # ArgoCD -> 18082:443
+    # ArgoCD -> 18082:8080 (ArgoCD server port is 8080)
     if minikube kubectl -- get pods -l app.kubernetes.io/name=argocd-server -n argocd -o name | grep -q "pod"; then
         if ! lsof -ti:18082 >/dev/null 2>&1; then
-            minikube kubectl -- port-forward svc/argocd-server 18082:443 -n argocd >/dev/null 2>&1 &
+            minikube kubectl -- port-forward svc/argocd-server 18082:8080 -n argocd >/dev/null 2>&1 &
             PF_PIDS+=($!)
             echo $! > /tmp/career-coach-argocd.pid
-            print_success "ArgoCD port-forward: 18082:443"
+            print_success "ArgoCD port-forward: 18082:8080"
         fi
     fi
 }
@@ -436,6 +450,7 @@ cleanup_port_forward_pids() {
     
     # Kill existing port-forward processes
     pkill -f "port-forward.*career-coach-prod" || true
+    pkill -f "port-forward.*argocd" || true
     
     for service in frontend backend ai-service grafana prometheus argocd; do
         local pid_file="/tmp/career-coach-${service}.pid"
@@ -478,8 +493,8 @@ verify_endpoints() {
         "http://localhost:4100/api/health|Backend"
         "http://localhost:5100/health|AI Service"
         "http://localhost:3003/login|Grafana"
-        "http://localhost:9090/-/healthy|Prometheus"
-        "https://localhost:18082|ArgoCD"
+        "http://localhost:9091/-/healthy|Prometheus"
+        "http://localhost:18082|ArgoCD"
     )
     
     local success_count=0
@@ -517,7 +532,7 @@ print_final_output() {
     echo -e "${YELLOW}AI Service:${NC} http://localhost:5100"
     echo ""
     echo -e "${BLUE}⚙️ DevOps Tools:${NC}"
-    echo -e "${YELLOW}ArgoCD:${NC}  https://localhost:18082"
+    echo -e "${YELLOW}ArgoCD:${NC}  http://localhost:18082"
     echo -e "  ${BLUE}Username:${NC} admin"
     echo -e "  ${BLUE}Password:${NC} $(minikube kubectl -- -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d)"
     echo ""
@@ -525,7 +540,7 @@ print_final_output() {
     echo -e "  ${BLUE}Username:${NC} admin"
     echo -e "  ${BLUE}Password:${NC} admin"
     echo ""
-    echo -e "${YELLOW}Prometheus:${NC} http://localhost:9090"
+    echo -e "${YELLOW}Prometheus:${NC} http://localhost:9091"
     echo ""
     echo -e "${GREEN}========================================${NC}"
     echo ""
