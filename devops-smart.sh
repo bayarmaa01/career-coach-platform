@@ -433,13 +433,13 @@ setup_port_forwards() {
         fi
     fi
     
-    # ArgoCD -> 18082:8080 (ArgoCD server port is 8080)
+    # ArgoCD -> 18082:80 (ArgoCD server port is 80, not 8080)
     if minikube kubectl -- get pods -l app.kubernetes.io/name=argocd-server -n argocd -o name | grep -q "pod"; then
         if ! lsof -ti:18082 >/dev/null 2>&1; then
-            minikube kubectl -- port-forward svc/argocd-server 18082:8080 -n argocd >/dev/null 2>&1 &
+            minikube kubectl -- port-forward svc/argocd-server 18082:80 -n argocd >/dev/null 2>&1 &
             PF_PIDS+=($!)
             echo $! > /tmp/career-coach-argocd.pid
-            print_success "ArgoCD port-forward: 18082:8080"
+            print_success "ArgoCD port-forward: 18082:80"
         fi
     fi
 }

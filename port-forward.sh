@@ -64,9 +64,9 @@ setup_forwards() {
     echo $! > /tmp/prometheus.pid
     print_success "Prometheus: http://localhost:9091"
     
-    # ArgoCD (service port: 8080)
+    # ArgoCD (service port: 80, not 8080)
     if minikube kubectl -- get namespace argocd >/dev/null 2>&1; then
-        minikube kubectl -- port-forward svc/argocd-server 18082:8080 -n argocd &
+        minikube kubectl -- port-forward svc/argocd-server 18082:80 -n argocd &
         echo $! > /tmp/argocd.pid
         print_success "ArgoCD: http://localhost:18082"
     else
@@ -133,14 +133,14 @@ case "${1:-start}" in
         while true; do
             sleep 5
             # Restart dead port-forwards if needed
-            if ! pgrep -f "port-forward.*frontend-service" > /dev/null; then
-                print_info "Restarting frontend port-forward..."
-                minikube kubectl -- port-forward svc/frontend-service 3100:3100 -n $NAMESPACE &
-            fi
-            if ! pgrep -f "port-forward.*argocd-server" > /dev/null && minikube kubectl -- get namespace argocd >/dev/null 2>&1; then
-                print_info "Restarting argocd port-forward..."
-                minikube kubectl -- port-forward svc/argocd-server 18082:8080 -n argocd &
-            fi
+        if ! pgrep -f "port-forward.*frontend-service" > /dev/null; then
+            print_info "Restarting frontend port-forward..."
+            minikube kubectl -- port-forward svc/frontend-service 3100:3100 -n $NAMESPACE &
+        fi
+        if ! pgrep -f "port-forward.*argocd-server" > /dev/null && minikube kubectl -- get namespace argocd >/dev/null 2>&1; then
+            print_info "Restarting argocd port-forward..."
+            minikube kubectl -- port-forward svc/argocd-server 18082:80 -n argocd &
+        fi
         done
         ;;
     stop)
