@@ -369,23 +369,23 @@ setup_port_forwards() {
     # Clean up existing port forwards
     cleanup_port_forward_pids
     
-    # Frontend -> 3100:80
+    # Frontend -> 3100:3100 (service port is 3100, not 80)
     if minikube kubectl -- get pods -l app=frontend-prod -n $NAMESPACE -o name | grep -q "pod"; then
         if ! lsof -ti:3100 >/dev/null 2>&1; then
-            minikube kubectl -- port-forward svc/frontend-service 3100:80 -n $NAMESPACE >/dev/null 2>&1 &
+            minikube kubectl -- port-forward svc/frontend-service 3100:3100 -n $NAMESPACE >/dev/null 2>&1 &
             PF_PIDS+=($!)
             echo $! > /tmp/career-coach-frontend.pid
-            print_success "Frontend port-forward: 3100:80"
+            print_success "Frontend port-forward: 3100:3100"
         fi
     fi
     
-    # Backend -> 4100:5000
+    # Backend -> 4100:4100 (service port is 4100, not 5000)
     if minikube kubectl -- get pods -l app=backend-prod -n $NAMESPACE -o name | grep -q "pod"; then
         if ! lsof -ti:4100 >/dev/null 2>&1; then
-            minikube kubectl -- port-forward svc/backend-service 4100:5000 -n $NAMESPACE >/dev/null 2>&1 &
+            minikube kubectl -- port-forward svc/backend-service 4100:4100 -n $NAMESPACE >/dev/null 2>&1 &
             PF_PIDS+=($!)
             echo $! > /tmp/career-coach-backend.pid
-            print_success "Backend port-forward: 4100:5000"
+            print_success "Backend port-forward: 4100:4100"
         fi
     fi
     
@@ -399,13 +399,13 @@ setup_port_forwards() {
         fi
     fi
     
-    # Grafana -> 3003:3000
+    # Grafana -> 3003:3003 (service port is 3003, not 3000)
     if minikube kubectl -- get pods -l app=grafana -n $NAMESPACE -o name | grep -q "pod"; then
         if ! lsof -ti:3003 >/dev/null 2>&1; then
-            minikube kubectl -- port-forward svc/grafana-service 3003:3000 -n $NAMESPACE >/dev/null 2>&1 &
+            minikube kubectl -- port-forward svc/grafana-service 3003:3003 -n $NAMESPACE >/dev/null 2>&1 &
             PF_PIDS+=($!)
             echo $! > /tmp/career-coach-grafana.pid
-            print_success "Grafana port-forward: 3003:3000"
+            print_success "Grafana port-forward: 3003:3003"
         fi
     fi
     
@@ -432,6 +432,11 @@ setup_port_forwards() {
 
 # Clean up port forward PIDs
 cleanup_port_forward_pids() {
+    print_info "Cleaning up port forwards..."
+    
+    # Kill existing port-forward processes
+    pkill -f "port-forward.*career-coach-prod" || true
+    
     for service in frontend backend ai-service grafana prometheus argocd; do
         local pid_file="/tmp/career-coach-${service}.pid"
         if [ -f "$pid_file" ]; then
@@ -442,6 +447,9 @@ cleanup_port_forward_pids() {
             rm -f "$pid_file"
         fi
     done
+    
+    # Wait a moment for processes to fully terminate
+    sleep 2
 }
 
 # Smart health check with retry
