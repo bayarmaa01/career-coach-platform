@@ -69,6 +69,10 @@ setup_forwards() {
         minikube kubectl -- port-forward svc/argocd-server 18082:80 -n argocd &
         echo $! > /tmp/argocd.pid
         print_success "ArgoCD: http://localhost:18082"
+        echo ""
+        echo "ArgoCD Credentials:"
+        echo "  Username: admin"
+        echo "  Password: $(minikube kubectl -- -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d)"
     else
         print_warning "ArgoCD not found - skipping ArgoCD port-forward"
     fi
@@ -115,6 +119,8 @@ show_status() {
         echo "ArgoCD Credentials:"
         echo "  Username: admin"
         echo "  Password: $(minikube kubectl -- -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d)"
+        echo ""
+        echo "ArgoCD URL: http://localhost:18082"
     else
         echo "ArgoCD: Not installed"
     fi
