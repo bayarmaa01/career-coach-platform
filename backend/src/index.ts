@@ -139,10 +139,11 @@ app.get('/api/health', async (req: Request, res: Response) => {
 app.get('/metrics', async (req: Request, res: Response) => {
   try {
     res.set('Content-Type', register.contentType);
-    res.end(await register.metrics());
+    const metrics = await register.metrics();
+    res.send(metrics);
   } catch (error) {
     console.error('Metrics endpoint error:', error);
-    res.status(500).end('Error generating metrics');
+    res.status(500).send('Error generating metrics');
   }
 });
 
