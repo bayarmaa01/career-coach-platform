@@ -83,6 +83,23 @@ data:
         UNIQUE(user_id, job_id)
     );
     
+    -- Resumes table (missing table causing 500 errors)
+    CREATE TABLE IF NOT EXISTS resumes (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+        file_name VARCHAR(255) NOT NULL,
+        original_name VARCHAR(255) NOT NULL,
+        file_path TEXT NOT NULL,
+        file_size INTEGER NOT NULL,
+        mime_type VARCHAR(100),
+        status VARCHAR(50) DEFAULT 'uploaded',
+        analysis_data JSONB,
+        uploaded_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        processed_at TIMESTAMP WITH TIME ZONE,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    );
+    
     -- Insert sample data
     INSERT INTO users (email, password, first_name, last_name, role) VALUES 
     ('admin@careercoach.com', '$2b$12$LQv3c1yqBWVHxkd0LHAkOa1QqKH4X.Js3Vj5zGzZx0xQk5y5y5e', 'Admin', 'User', 'admin')
@@ -95,3 +112,5 @@ data:
     CREATE INDEX IF NOT EXISTS idx_jobs_active ON jobs(is_active);
     CREATE INDEX IF NOT EXISTS idx_applications_user_id ON applications(user_id);
     CREATE INDEX IF NOT EXISTS idx_applications_job_id ON applications(job_id);
+    CREATE INDEX IF NOT EXISTS idx_resumes_user_id ON resumes(user_id);
+    CREATE INDEX IF NOT EXISTS idx_resumes_status ON resumes(status);

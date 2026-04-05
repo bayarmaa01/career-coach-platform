@@ -93,6 +93,11 @@ spec:
             configMapKeyRef:
               name: app-config
               key: CORS_ORIGIN
+        - name: AI_SERVICE_URL
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: AI_SERVICE_URL
         - name: RATE_LIMIT_WINDOW_MS
           valueFrom:
             configMapKeyRef:
