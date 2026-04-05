@@ -71,7 +71,20 @@ async def root():
 
 @app.get("/metrics", response_class=PlainTextResponse)
 async def metrics():
-    return PlainTextResponse(generate_latest(), media_type=CONTENT_TYPE_LATEST)
+    try:
+        from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
+        metrics_data = generate_latest()
+        return PlainTextResponse(
+            metrics_data, 
+            media_type="text/plain; version=0.0.4; charset=utf-8"
+        )
+    except Exception as e:
+        print(f"Metrics error: {e}")
+        return PlainTextResponse(
+            "# Error generating metrics\n", 
+            media_type="text/plain", 
+            status_code=500
+        )
 
 if __name__ == "__main__":
     import uvicorn
