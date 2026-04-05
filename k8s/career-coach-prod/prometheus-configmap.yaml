@@ -26,17 +26,11 @@ data:
       - job_name: 'career-coach-backend'
         static_configs:
           - targets: ['backend-service:4100']
-        metrics_path: '/api/health'
+        metrics_path: '/metrics'
         scrape_interval: 30s
       
       - job_name: 'career-coach-ai-service'
         static_configs:
           - targets: ['ai-service:5100']
-        metrics_path: '/health'
-        scrape_interval: 30s
-      
-      - job_name: 'career-coach-frontend'
-        static_configs:
-          - targets: ['frontend-service:3100']
-        metrics_path: '/'
+        metrics_path: '/metrics'
         scrape_interval: 30s
