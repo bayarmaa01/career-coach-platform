@@ -1,5 +1,6 @@
 # Lightweight AI Service - FastAPI with minimal dependencies
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel
 import redis
 import os
@@ -8,8 +9,17 @@ import json
 import numpy as np
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
+from prometheus_client import Counter, Histogram, Gauge, generate_latest, CollectorRegistry, REGISTRY
 
 app = FastAPI(title="Career Coach AI Service", version="1.0.0")
+
+# Create custom registry for Prometheus metrics
+registry = CollectorRegistry()
+
+# Prometheus metrics
+REQUEST_COUNT = Counter('http_requests_total', 'Total HTTP requests', ['method', 'endpoint', 'status'], registry=registry)
+REQUEST_DURATION = Histogram('http_request_duration_seconds', 'HTTP request duration', registry=registry)
+ACTIVE_CONNECTIONS = Gauge('active_connections', 'Active connections', registry=registry)
 
 # Redis connection
 redis_client = redis.Redis(
@@ -133,6 +143,24 @@ async def get_career_recommendations(skill: str):
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get recommendations: {str(e)}")
+
+@app.get("/metrics", response_class=PlainTextResponse)
+async def metrics():
+    """Prometheus metrics endpoint"""
+    try:
+        # Generate metrics from our custom registry
+        metrics_data = generate_latest(registry)
+        return PlainTextResponse(
+            metrics_data,
+            media_type="text/plain; version=0.0.4; charset=utf-8"
+        )
+    except Exception as e:
+        print(f"Metrics error: {e}")
+        return PlainTextResponse(
+            "# Error generating metrics\n# HELP prometheus_metrics_failed_total Total number of failed metrics generation\n# TYPE prometheus_metrics_failed_total counter\nprometheus_metrics_failed_total 1\n",
+            media_type="text/plain",
+            status_code=500
+        )
 
 @app.get("/")
 async def root():
