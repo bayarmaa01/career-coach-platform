@@ -155,7 +155,7 @@ app.use(errorHandler);
 
 // Start server
 if (NODE_ENV !== 'test') {
-  app.listen(PORT, (): void => {
+  app.listen(PORT, '0.0.0.0', (): void => {
     console.log(`🚀 Server is running on port ${PORT}`);
     console.log(`📝 Environment: ${NODE_ENV}`);
     console.log(`🏥 Health check: http://localhost:${PORT}/api/health`);

@@ -7,11 +7,10 @@ metadata:
     app: frontend-prod
     tier: frontend
 spec:
-  type: NodePort
+  type: ClusterIP
   ports:
   - port: 3100
     targetPort: 80
     protocol: TCP
-    nodePort: 31000
   selector:
     app: frontend-prod
