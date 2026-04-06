@@ -250,7 +250,7 @@ build_images() {
     print_success "All images built successfully"
 }
 
-# Smart cleanup (only in FULL mode)
+# Smart cleanup (only in FULL mode, preserves database)
 cleanup_broken_deployments() {
     if [ "$FAST_MODE" = true ]; then
         print_success "Skipping cleanup (FAST mode)"
@@ -259,13 +259,13 @@ cleanup_broken_deployments() {
     
     print_info "Checking for broken deployments..."
     
-    # Simple check for any deployments
+    # Check if deployments exist and are broken
     local deployment_count=$(minikube kubectl -- get deployments -n $NAMESPACE --no-headers 2>/dev/null | wc -l)
     
     if [ "$deployment_count" -gt 0 ]; then
-        print_warning "Found broken deployments, cleaning up..."
+        print_warning "Found existing deployments, cleaning up application services only..."
         
-        # Delete and recreate problematic deployments
+        # Delete ONLY application deployments (preserve database and infrastructure)
         minikube kubectl -- delete deployment backend-prod -n $NAMESPACE --ignore-not-found=true
         minikube kubectl -- delete deployment frontend-prod -n $NAMESPACE --ignore-not-found=true
         minikube kubectl -- delete deployment ai-service-prod -n $NAMESPACE --ignore-not-found=true
@@ -273,8 +273,11 @@ cleanup_broken_deployments() {
         minikube kubectl -- delete deployment grafana -n $NAMESPACE --ignore-not-found=true
         minikube kubectl -- delete deployment prometheus -n $NAMESPACE --ignore-not-found=true
         
-        sleep 5
-        print_info "Cleaned up broken deployments"
+        # NEVER delete postgres statefulset or PVC - preserve data
+        print_info "Application services cleaned up, database data preserved"
+        sleep 3
+    else
+        print_success "No existing deployments found"
     fi
 }
 

@@ -138,12 +138,14 @@ app.get('/api/health', async (req: Request, res: Response) => {
 // Prometheus metrics endpoint
 app.get('/metrics', async (req: Request, res: Response) => {
   try {
-    res.set('Content-Type', 'text/plain; version=0.0.4; charset=utf-8');
+    // Ensure metrics are collected before returning
     const metrics = await register.metrics();
+    res.setHeader('Content-Type', 'text/plain; version=0.0.4; charset=utf-8');
     res.status(200).send(metrics);
   } catch (error) {
     console.error('Metrics endpoint error:', error);
-    res.status(500).set('Content-Type', 'text/plain').send('# Error generating metrics\n');
+    res.setHeader('Content-Type', 'text/plain');
+    res.status(500).send('# Error generating metrics\n# HELP prometheus_metrics_failed_total Total number of failed metrics generation\n# TYPE prometheus_metrics_failed_total counter\nprometheus_metrics_failed_total 1\n');
   }
 });
 

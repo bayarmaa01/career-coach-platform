@@ -4,7 +4,7 @@ from fastapi.responses import PlainTextResponse
 import os
 import time
 from contextlib import asynccontextmanager
-from prometheus_client import Counter, Histogram, Gauge, generate_latest, CONTENT_TYPE_LATEST
+from prometheus_client import Counter, Histogram, Gauge, generate_latest, CONTENT_TYPE_LATEST, CollectorRegistry, REGISTRY
 
 from app.routers import resume, career
 from app.core.config import settings
@@ -18,10 +18,13 @@ except ImportError:
     USE_SIMPLE_PROCESSOR = True
     print("Using simple resume processor (spaCy not available)")
 
+# Create custom registry
+registry = CollectorRegistry()
+
 # Prometheus metrics
-REQUEST_COUNT = Counter('http_requests_total', 'Total HTTP requests', ['method', 'endpoint', 'status'])
-REQUEST_DURATION = Histogram('http_request_duration_seconds', 'HTTP request duration')
-ACTIVE_CONNECTIONS = Gauge('active_connections', 'Active connections')
+REQUEST_COUNT = Counter('http_requests_total', 'Total HTTP requests', ['method', 'endpoint', 'status'], registry=registry)
+REQUEST_DURATION = Histogram('http_request_duration_seconds', 'HTTP request duration', registry=registry)
+ACTIVE_CONNECTIONS = Gauge('active_connections', 'Active connections', registry=registry)
 
 app = FastAPI(
     title="AI Career Coach Service",
@@ -72,17 +75,17 @@ async def root():
 @app.get("/metrics", response_class=PlainTextResponse)
 async def metrics():
     try:
-        from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
-        metrics_data = generate_latest()
+        # Generate metrics from our custom registry
+        metrics_data = generate_latest(registry)
         return PlainTextResponse(
-            metrics_data, 
+            metrics_data,
             media_type="text/plain; version=0.0.4; charset=utf-8"
         )
     except Exception as e:
         print(f"Metrics error: {e}")
         return PlainTextResponse(
-            "# Error generating metrics\n", 
-            media_type="text/plain", 
+            "# Error generating metrics\n# HELP prometheus_metrics_failed_total Total number of failed metrics generation\n# TYPE prometheus_metrics_failed_total counter\nprometheus_metrics_failed_total 1\n",
+            media_type="text/plain",
             status_code=500
         )
 
