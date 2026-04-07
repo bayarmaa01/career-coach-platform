@@ -162,6 +162,61 @@ async def metrics():
             status_code=500
         )
 
+@app.get("/recommendations/{skill}")
+async def get_recommendations(skill: str):
+    """Get career recommendations for a specific skill"""
+    try:
+        # Mock recommendations based on skill
+        recommendations = {
+            "python": ["Software Engineer", "Data Scientist", "Backend Developer"],
+            "javascript": ["Frontend Developer", "Full Stack Developer", "UI/UX Engineer"],
+            "react": ["Frontend Developer", "UI Engineer", "Web Developer"],
+            "node": ["Backend Developer", "Full Stack Developer", "DevOps Engineer"],
+            "default": ["Software Developer", "IT Consultant", "Technical Lead"]
+        }
+        
+        careers = recommendations.get(skill.lower(), recommendations["default"])
+        return {"recommendations": careers}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error getting recommendations: {str(e)}")
+
+@app.get("/career-recommendations/{resume_id}")
+async def get_career_recommendations(resume_id: str):
+    """Get career path recommendations based on resume analysis"""
+    try:
+        # For now, return mock career recommendations
+        # In production, this would analyze the resume and provide personalized recommendations
+        mock_careers = [
+            {
+                "title": "Senior Software Engineer",
+                "description": "Lead development of complex software systems and mentor junior developers",
+                "skills_required": ["Python", "JavaScript", "React", "Node.js", "System Design"],
+                "salary_range": "$120,000 - $180,000",
+                "growth_potential": "High",
+                "match_score": 0.85
+            },
+            {
+                "title": "Full Stack Developer",
+                "description": "Develop both frontend and backend applications",
+                "skills_required": ["JavaScript", "React", "Node.js", "Python", "Database Design"],
+                "salary_range": "$100,000 - $150,000",
+                "growth_potential": "High",
+                "match_score": 0.78
+            },
+            {
+                "title": "Technical Lead",
+                "description": "Lead technical teams and make architectural decisions",
+                "skills_required": ["System Design", "Team Leadership", "Python", "JavaScript", "DevOps"],
+                "salary_range": "$140,000 - $200,000",
+                "growth_potential": "Very High",
+                "match_score": 0.72
+            }
+        ]
+        
+        return mock_careers
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error getting career recommendations: {str(e)}")
+
 @app.get("/")
 async def root():
     """Root endpoint"""
@@ -172,7 +227,8 @@ async def root():
         "endpoints": {
             "health": "/health",
             "analyze_resume": "/analyze-resume (POST)",
-            "recommendations": "/recommendations/{skill}"
+            "recommendations": "/recommendations/{skill}",
+            "career_recommendations": "/career-recommendations/{resume_id}"
         }
     }
 
