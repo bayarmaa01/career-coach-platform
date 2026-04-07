@@ -58,9 +58,13 @@ router.post('/upload', authenticateToken, upload.single('resume'), async (req, r
 
     // AI Service Integration with better error handling
     try {
+      // Read the uploaded file to extract text content
+      const fs = require('fs').promises;
+      const fileContent = await fs.readFile(path, 'utf8');
+      
       const aiResponse = await axios.post(`${process.env.AI_SERVICE_URL}/analyze-resume`, {
-        resumeId: resume.id,
-        file_path: path  // Fixed: use file_path instead of filePath
+        text: fileContent,
+        skills: []  // Let AI service extract skills from text
       }, {
         timeout: 10000,
         headers: {
@@ -70,9 +74,11 @@ router.post('/upload', authenticateToken, upload.single('resume'), async (req, r
       
       console.log('AI service called successfully:', aiResponse.status);
       
+      // Store AI analysis results
+      const analysis = aiResponse.data;
       await pool.query(
-        'UPDATE resumes SET status = $1 WHERE id = $2',
-        ['processing', resume.id]
+        'UPDATE resumes SET status = $1, analysis_data = $2 WHERE id = $3',
+        ['completed', JSON.stringify(analysis), resume.id]
       );
 
       return res.status(201).json({
@@ -81,7 +87,8 @@ router.post('/upload', authenticateToken, upload.single('resume'), async (req, r
           id: resume.id,
           fileName: resume.original_name,
           uploadedAt: resume.uploaded_at,
-          status: 'processing'
+          status: 'completed',
+          analysis: analysis
         }
       });
       
