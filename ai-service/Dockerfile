@@ -13,7 +13,7 @@ RUN apt-get update && apt-get install -y \
 COPY requirements-minimal.txt requirements.txt
 
 # Install Python dependencies
-RUN pip install --no-cache-dir -r requirements-minimal.txt
+RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application code
 COPY main-minimal.py main.py
