@@ -108,6 +108,26 @@ spec:
             configMapKeyRef:
               name: app-config
               key: RATE_LIMIT_MAX_REQUESTS
+        - name: GEMINI_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: app-secrets
+              key: GEMINI_API_KEY
+        - name: GEMINI_PROJECT_NAME
+          valueFrom:
+            secretKeyRef:
+              name: app-secrets
+              key: GEMINI_PROJECT_NAME
+        - name: GEMINI_PROJECT_NUMBER
+          valueFrom:
+            secretKeyRef:
+              name: app-secrets
+              key: GEMINI_PROJECT_NUMBER
+        - name: AI_MODEL_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: app-secrets
+              key: AI_MODEL_API_KEY
         resources:
           requests:
             memory: "256Mi"

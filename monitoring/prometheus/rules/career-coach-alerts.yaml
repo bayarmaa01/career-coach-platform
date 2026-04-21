@@ -1,0 +1,219 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: career-coach-alerts
+  namespace: career-coach-prod
+  labels:
+    app: career-coach
+    component: monitoring
+spec:
+  groups:
+    - name: career-coach.rules
+      rules:
+        # Application Layer Alerts
+        - alert: HighErrorRate
+          expr: |
+            sum(rate(http_requests_total{namespace="career-coach-prod", status!~"2.."}[5m])) by (service) 
+            / sum(rate(http_requests_total{namespace="career-coach-prod"}[5m])) by (service) * 100 > 5
+          for: 2m
+          labels:
+            severity: warning
+            service: "{{ $labels.service }}"
+          annotations:
+            summary: "High error rate detected for {{ $labels.service }}"
+            description: "Error rate is {{ $value | printf \"%.2f\" }}% for service {{ $labels.service }} over the last 5 minutes"
+
+        - alert: HighLatency
+          expr: |
+            histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{namespace="career-coach-prod"}[5m])) by (le, service)) > 1
+          for: 2m
+          labels:
+            severity: warning
+            service: "{{ $labels.service }}"
+          annotations:
+            summary: "High latency detected for {{ $labels.service }}"
+            description: "95th percentile latency is {{ $value | printf \"%.2f\" }}s for service {{ $labels.service }} over the last 5 minutes"
+
+        - alert: ServiceDown
+          expr: |
+            up{job=~".*-service", namespace="career-coach-prod"} == 0
+          for: 1m
+          labels:
+            severity: critical
+            service: "{{ $labels.job }}"
+          annotations:
+            summary: "Service {{ $labels.job }} is down"
+            description: "Service {{ $labels.job }} has been down for more than 1 minute"
+
+        # AI Service Specific Alerts
+        - alert: GeminiAPIHighErrorRate
+          expr: |
+            sum(rate(gemini_api_errors_total{namespace="career-coach-prod", service="ai-service"}[5m])) 
+            / sum(rate(gemini_api_requests_total{namespace="career-coach-prod", service="ai-service"}[5m])) * 100 > 10
+          for: 2m
+          labels:
+            severity: warning
+            service: "ai-service"
+          annotations:
+            summary: "High Gemini API error rate"
+            description: "Gemini API error rate is {{ $value | printf \"%.2f\" }}% over the last 5 minutes"
+
+        - alert: GeminiAPIHighLatency
+          expr: |
+            histogram_quantile(0.95, sum(rate(gemini_api_duration_seconds_bucket{namespace="career-coach-prod", service="ai-service"}[5m])) by (le)) > 5
+          for: 2m
+          labels:
+            severity: warning
+            service: "ai-service"
+          annotations:
+            summary: "High Gemini API latency"
+            description: "Gemini API 95th percentile latency is {{ $value | printf \"%.2f\" }}s over the last 5 minutes"
+
+        - alert: GeminiAPIDown
+          expr: |
+            sum(rate(gemini_api_requests_total{namespace="career-coach-prod", service="ai-service"}[5m])) == 0
+          for: 1m
+          labels:
+            severity: critical
+            service: "ai-service"
+          annotations:
+            summary: "Gemini API is not responding"
+            description: "No Gemini API requests have been processed in the last minute"
+
+        # Kubernetes Layer Alerts
+        - alert: PodCrashLooping
+          expr: |
+            rate(kube_pod_container_status_restarts_total{namespace="career-coach-prod"}[15m]) > 0
+          for: 2m
+          labels:
+            severity: warning
+            pod: "{{ $labels.pod }}"
+          annotations:
+            summary: "Pod {{ $labels.pod }} is crash looping"
+            description: "Pod {{ $labels.pod }} has restarted {{ $value | printf \"%.0f\" }} times in the last 15 minutes"
+
+        - alert: PodNotReady
+          expr: |
+            kube_pod_status_ready{namespace="career-coach-prod", condition="true"} == 0
+          for: 2m
+          labels:
+            severity: warning
+            pod: "{{ $labels.pod }}"
+          annotations:
+            summary: "Pod {{ $labels.pod }} is not ready"
+            description: "Pod {{ $labels.pod }} has been not ready for more than 2 minutes"
+
+        - alert: HighCPUUsage
+          expr: |
+            sum(rate(container_cpu_usage_seconds_total{namespace="career-coach-prod", container!=""}[5m])) by (pod) 
+            / sum(kube_pod_container_resource_requests{namespace="career-coach-prod", resource="cpu"}) by (pod) * 100 > 80
+          for: 5m
+          labels:
+            severity: warning
+            pod: "{{ $labels.pod }}"
+          annotations:
+            summary: "High CPU usage for pod {{ $labels.pod }}"
+            description: "CPU usage is {{ $value | printf \"%.2f\" }}% for pod {{ $labels.pod }} over the last 5 minutes"
+
+        - alert: HighMemoryUsage
+          expr: |
+            sum(container_memory_working_set_bytes{namespace="career-coach-prod", container!=""}) by (pod) 
+            / sum(kube_pod_container_resource_requests{namespace="career-coach-prod", resource="memory"}) by (pod) * 100 > 85
+          for: 5m
+          labels:
+            severity: warning
+            pod: "{{ $labels.pod }}"
+          annotations:
+            summary: "High memory usage for pod {{ $labels.pod }}"
+            description: "Memory usage is {{ $value | printf \"%.2f\" }}% for pod {{ $labels.pod }} over the last 5 minutes"
+
+        # Infrastructure Alerts
+        - alert: NodeDown
+          expr: |
+            up{job="node-exporter"} == 0
+          for: 1m
+          labels:
+            severity: critical
+            node: "{{ $labels.instance }}"
+          annotations:
+            summary: "Node {{ $labels.instance }} is down"
+            description: "Node {{ $labels.instance }} has been down for more than 1 minute"
+
+        - alert: HighNodeCPUUsage
+          expr: |
+            100 - (avg by (instance) (irate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 85
+          for: 5m
+          labels:
+            severity: warning
+            node: "{{ $labels.instance }}"
+          annotations:
+            summary: "High CPU usage on node {{ $labels.instance }}"
+            description: "CPU usage is {{ $value | printf \"%.2f\" }}% on node {{ $labels.instance }} over the last 5 minutes"
+
+        - alert: HighNodeMemoryUsage
+          expr: |
+            (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100 > 90
+          for: 5m
+          labels:
+            severity: warning
+            node: "{{ $labels.instance }}"
+          annotations:
+            summary: "High memory usage on node {{ $labels.instance }}"
+            description: "Memory usage is {{ $value | printf \"%.2f\" }}% on node {{ $labels.instance }} over the last 5 minutes"
+
+        - alert: DiskSpaceLow
+          expr: |
+            (node_filesystem_avail_bytes / node_filesystem_size_bytes) * 100 < 10
+          for: 2m
+          labels:
+            severity: critical
+            node: "{{ $labels.instance }}"
+          annotations:
+            summary: "Low disk space on {{ $labels.instance }}"
+            description: "Disk space is {{ $value | printf \"%.2f\" }}% available on {{ $labels.instance }}:{{ $labels.mountpoint }}"
+
+        # Database Alerts
+        - alert: PostgreSQLDown
+          expr: |
+            up{job="postgres", namespace="career-coach-prod"} == 0
+          for: 1m
+          labels:
+            severity: critical
+            service: "postgres"
+          annotations:
+            summary: "PostgreSQL is down"
+            description: "PostgreSQL database has been down for more than 1 minute"
+
+        - alert: RedisDown
+          expr: |
+            up{job="redis", namespace="career-coach-prod"} == 0
+          for: 1m
+          labels:
+            severity: critical
+            service: "redis"
+          annotations:
+            summary: "Redis is down"
+            description: "Redis cache has been down for more than 1 minute"
+
+        # Career Coach Business Alerts
+        - alert: NoCareerRecommendations
+          expr: |
+            sum(rate(ai_requests_total{namespace="career-coach-prod", service="ai-service", endpoint="/career-recommendations"}[5m])) == 0
+          for: 10m
+          labels:
+            severity: warning
+            service: "ai-service"
+          annotations:
+            summary: "No career recommendation requests"
+            description: "No career recommendation requests have been processed in the last 10 minutes"
+
+        - alert: ResumeProcessingFailed
+          expr: |
+            sum(rate(ai_requests_total{namespace="career-coach-prod", service="ai-service", endpoint="/analyze-resume", status="5.."}[5m])) > 0
+          for: 2m
+          labels:
+            severity: warning
+            service: "ai-service"
+          annotations:
+            summary: "Resume processing failures"
+            description: "Resume processing is failing with status 5xx at rate {{ $value | printf \"%.2f\" }} requests/second"
