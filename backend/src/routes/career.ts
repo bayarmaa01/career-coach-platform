@@ -2,6 +2,7 @@ import express from 'express';
 import { authenticateToken } from '../middleware/auth';
 import pool from '../config/database';
 import axios from 'axios';
+import geminiService from '../services/gemini';
 
 const router = express.Router();
 
@@ -11,7 +12,7 @@ router.get('/recommendations/:resumeId', authenticateToken, async (req, res) => 
     const userId = (req as any).user.id;
 
     const resumeCheck = await pool.query(
-      'SELECT id FROM resumes WHERE id = $1 AND user_id = $2 AND status = $3',
+      'SELECT id, content_text FROM resumes WHERE id = $1 AND user_id = $2 AND status = $3',
       [resumeId, userId, 'completed']
     );
 
@@ -19,9 +20,11 @@ router.get('/recommendations/:resumeId', authenticateToken, async (req, res) => 
       return res.status(404).json({ message: 'Resume not found or not processed' });
     }
 
+    const resume = resumeCheck.rows[0];
+
     try {
-      const response = await axios.get(`${process.env.AI_SERVICE_URL}/career-recommendations/${resumeId}`);
-      res.json(response.data);
+      const recommendations = await geminiService.generateCareerRecommendations(resume.content_text || '');
+      res.json(recommendations);
     } catch (aiError) {
       console.error('Career recommendations error:', aiError);
       
@@ -69,7 +72,7 @@ router.get('/skill-gap/:resumeId', authenticateToken, async (req, res) => {
     const userId = (req as any).user.id;
 
     const resumeCheck = await pool.query(
-      'SELECT id FROM resumes WHERE id = $1 AND user_id = $2 AND status = $3',
+      'SELECT id, content_text FROM resumes WHERE id = $1 AND user_id = $2 AND status = $3',
       [resumeId, userId, 'completed']
     );
 
@@ -77,9 +80,12 @@ router.get('/skill-gap/:resumeId', authenticateToken, async (req, res) => {
       return res.status(404).json({ message: 'Resume not found or not processed' });
     }
 
+    const resume = resumeCheck.rows[0];
+    const targetRole = req.query.targetRole as string || 'Senior Software Engineer';
+
     try {
-      const response = await axios.get(`${process.env.AI_SERVICE_URL}/skill-gap/${resumeId}`);
-      res.json(response.data);
+      const skillGaps = await geminiService.analyzeSkillGap(resume.content_text || '', targetRole);
+      res.json(skillGaps);
     } catch (aiError) {
       console.error('Skill gap analysis error:', aiError);
       
@@ -135,7 +141,7 @@ router.get('/courses/:resumeId', authenticateToken, async (req, res) => {
     const userId = (req as any).user.id;
 
     const resumeCheck = await pool.query(
-      'SELECT id FROM resumes WHERE id = $1 AND user_id = $2 AND status = $3',
+      'SELECT id, content_text FROM resumes WHERE id = $1 AND user_id = $2 AND status = $3',
       [resumeId, userId, 'completed']
     );
 
@@ -143,9 +149,13 @@ router.get('/courses/:resumeId', authenticateToken, async (req, res) => {
       return res.status(404).json({ message: 'Resume not found or not processed' });
     }
 
+    const resume = resumeCheck.rows[0];
+
     try {
-      const response = await axios.get(`${process.env.AI_SERVICE_URL}/courses/${resumeId}`);
-      res.json(response.data);
+      // First get skill gaps for this resume
+      const skillGaps = await geminiService.analyzeSkillGap(resume.content_text || '', 'Senior Software Engineer');
+      const courses = await geminiService.recommendCourses(resume.content_text || '', skillGaps);
+      res.json(courses);
     } catch (aiError) {
       console.error('Course recommendations error:', aiError);
       
@@ -202,7 +212,7 @@ router.get('/analysis/:resumeId', authenticateToken, async (req, res) => {
     const userId = (req as any).user.id;
 
     const resumeCheck = await pool.query(
-      'SELECT id, analysis_data FROM resumes WHERE id = $1 AND user_id = $2 AND status = $3',
+      'SELECT id, analysis_data, content_text FROM resumes WHERE id = $1 AND user_id = $2 AND status = $3',
       [resumeId, userId, 'completed']
     );
 
@@ -217,14 +227,14 @@ router.get('/analysis/:resumeId', authenticateToken, async (req, res) => {
     }
 
     try {
-      const response = await axios.get(`${process.env.AI_SERVICE_URL}/analysis/${resumeId}`);
+      const analysis = await geminiService.analyzeResume(resume.content_text || '');
       
       await pool.query(
         'UPDATE resumes SET analysis_data = $1 WHERE id = $2',
-        [JSON.stringify(response.data), resumeId]
+        [JSON.stringify(analysis), resumeId]
       );
 
-      res.json(response.data);
+      res.json(analysis);
     } catch (aiError) {
       console.error('Resume analysis error:', aiError);
       
