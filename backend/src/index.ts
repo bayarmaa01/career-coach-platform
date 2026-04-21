@@ -11,6 +11,7 @@ import client from 'prom-client';
 import authRoutes from './routes/auth';
 import resumeRoutes from './routes/resume';
 import careerRoutes from './routes/career';
+import aiRoutes from './routes/aiRoutes';
 import { errorHandler } from './middleware/errorHandler';
 import { notFound } from './middleware/notFound';
 import pool from './config/database';
@@ -110,6 +111,7 @@ app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 app.use('/api/auth', authRoutes);
 app.use('/api/resumes', resumeRoutes);
 app.use('/api/career', careerRoutes);
+app.use('/api/ai', aiRoutes);
 
 // Health check endpoint
 app.get('/api/health', async (req: Request, res: Response) => {

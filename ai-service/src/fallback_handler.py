@@ -5,7 +5,7 @@ Provides fallback mechanisms when Gemini API fails
 
 import json
 import logging
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 import time
 from .gemini_client import gemini_client
 
@@ -178,6 +178,207 @@ class FallbackHandler:
             "api_key_configured": bool(gemini_client.api_key),
             "metrics": gemini_client.get_metrics()
         }
+
+    def generate_cv_fallback(self, request: Dict[str, Any]) -> Dict[str, Any]:
+        """Fallback CV generation"""
+        cv_data = {
+            "personal_info": {
+                "name": request.get("name", "Professional"),
+                "title": request.get("target_role", "Professional"),
+                "email": "email@example.com",
+                "phone": "+1234567890",
+                "location": "City, Country"
+            },
+            "professional_summary": f"Experienced {request.get('target_role', 'professional')} with expertise in {', '.join(request.get('skills', [])[:3])}",
+            "skills": {
+                "technical": request.get('skills', []),
+                "soft": ["Communication", "Teamwork", "Problem-solving"],
+                "certifications": []
+            },
+            "experience": request.get('experience', []),
+            "education": request.get('education', []),
+            "interests": request.get('interests', [])
+        }
+
+        # Format CVs
+        markdown_cv = self._format_fallback_markdown_cv(cv_data)
+        formatted_cv = self._format_fallback_text_cv(cv_data)
+
+        return {
+            "cv_data": cv_data,
+            "formatted_cv": formatted_cv,
+            "markdown_cv": markdown_cv
+        }
+
+    def chat_fallback(self, message: str) -> Dict[str, Any]:
+        """Fallback chat response"""
+        responses = [
+            "I'm here to help with your career journey! Based on your question, I'd recommend focusing on building your skills and gaining practical experience.",
+            "That's a great question! I suggest exploring different career paths that align with your interests and current skillset.",
+            "I understand you're looking for career guidance. Consider networking with professionals in your field and seeking mentorship opportunities.",
+            "For career development, I recommend setting clear goals and creating a structured learning plan to achieve them.",
+            "Career growth often comes from continuous learning. Stay curious and keep developing new skills relevant to your field."
+        ]
+
+        import random
+        response = random.choice(responses)
+        
+        suggestions = [
+            "What specific skills do you want to develop?",
+            "What career paths interest you most?",
+            "How can I help with your resume?",
+            "What industry are you targeting?"
+        ]
+
+        return {
+            "response": response,
+            "suggestions": random.sample(suggestions, 2)
+        }
+
+    def recommendations_fallback(self, request: Dict[str, Any]) -> Dict[str, Any]:
+        """Fallback recommendations"""
+        skills = request.get('skills', [])
+        interests = request.get('interests', [])
+
+        career_paths = [
+            {
+                "title": "Software Developer",
+                "description": "Design, develop, and maintain software applications",
+                "required_skills": ["Programming", "Problem-solving"],
+                "existing_skills": skills[:2] if skills else [],
+                "missing_skills": ["Problem-solving"] if not skills else [],
+                "salary_range": "$60,000 - $120,000",
+                "growth_potential": "High",
+                "industry_demand": "High",
+                "match_score": 70
+            },
+            {
+                "title": "Data Analyst",
+                "description": "Analyze data to help businesses make informed decisions",
+                "required_skills": ["Data Analysis", "Statistics"],
+                "existing_skills": skills[:1] if skills else [],
+                "missing_skills": ["Statistics"] if not skills else [],
+                "salary_range": "$55,000 - $95,000",
+                "growth_potential": "High",
+                "industry_demand": "High",
+                "match_score": 65
+            }
+        ]
+
+        learning_roadmap = [
+            {
+                "month": "Month 1",
+                "focus_area": "Fundamentals",
+                "skills_to_learn": skills[:2] if skills else ["Programming"],
+                "resources": [
+                    {
+                        "type": "course",
+                        "title": "Introduction to Programming",
+                        "provider": "Coursera",
+                        "duration": "20 hours",
+                        "difficulty": "Beginner"
+                    }
+                ],
+                "projects": ["Build a simple project"],
+                "time_commitment": "10 hours per week",
+                "outcomes": ["Learn basic concepts", "Complete first project"]
+            }
+        ]
+
+        job_suggestions = [
+            {
+                "job_title": "Junior Developer",
+                "company_type": "Startup",
+                "responsibilities": ["Write code", "Debug applications"],
+                "skills_match": {
+                    "matched": skills[:1] if skills else [],
+                    "missing": ["Experience"],
+                    "match_percentage": 60
+                },
+                "salary_range": "$50,000 - $70,000",
+                "location_options": ["Remote", "Hybrid"],
+                "application_tips": ["Highlight projects", "Show learning attitude"],
+                "urgency": "Medium"
+            }
+        ]
+
+        skill_gaps = [
+            "Communication skills",
+            "Project management",
+            "Technical writing"
+        ]
+
+        return {
+            "career_paths": career_paths,
+            "learning_roadmap": learning_roadmap,
+            "job_suggestions": job_suggestions,
+            "skill_gaps": skill_gaps
+        }
+
+    def cv_improver_fallback(self, request: Dict[str, Any]) -> Dict[str, Any]:
+        """Fallback CV improvement"""
+        original_cv = request.get('cv_text', '')
+        target_role = request.get('target_role', 'Professional')
+
+        # Simple improvements
+        improved_cv = original_cv
+        
+        # Add professional summary if missing
+        if "summary" not in original_cv.lower():
+            improved_cv = f"Professional Summary\nExperienced {target_role} with proven track record of success.\n\n{improved_cv}"
+        
+        # Add action verbs
+        action_verbs = ["Led", "Developed", "Implemented", "Achieved", "Managed"]
+        for verb in action_verbs:
+            if verb.lower() not in improved_cv.lower():
+                improved_cv = improved_cv.replace("responsible for", f"{verb}").replace("worked on", f"{verb}")
+
+        improvements_made = [
+            "Enhanced professional summary",
+            "Added action verbs for impact",
+            "Improved formatting"
+        ]
+        
+        suggested_skills = ["Communication", "Leadership", "Problem-solving"]
+        grammar_corrections = ["Fixed sentence structure", "Improved punctuation"]
+        impact_additions = ["Added achievement-focused statements"]
+
+        return {
+            "improved_cv": improved_cv,
+            "improvements_made": improvements_made,
+            "suggested_skills": suggested_skills,
+            "grammar_corrections": grammar_corrections,
+            "impact_additions": impact_additions
+        }
+
+    def _format_fallback_markdown_cv(self, cv_data: Dict[str, Any]) -> str:
+        """Format fallback CV as markdown"""
+        markdown = f"# {cv_data['personal_info']['name']}\n\n"
+        
+        if cv_data.get('professional_summary'):
+            markdown += f"## Professional Summary\n\n{cv_data['professional_summary']}\n\n"
+        
+        if cv_data.get('skills'):
+            markdown += "## Skills\n\n"
+            if cv_data['skills'].get('technical'):
+                markdown += f"**Technical:** {', '.join(cv_data['skills']['technical'])}\n\n"
+        
+        return markdown
+
+    def _format_fallback_text_cv(self, cv_data: Dict[str, Any]) -> str:
+        """Format fallback CV as text"""
+        text = f"{cv_data['personal_info']['name']}\n"
+        text += "=" * len(cv_data['personal_info']['name']) + "\n\n"
+        
+        if cv_data.get('professional_summary'):
+            text += f"PROFESSIONAL SUMMARY\n{cv_data['professional_summary']}\n\n"
+        
+        if cv_data.get('skills'):
+            text += "SKILLS\n"
+            if cv_data['skills'].get('technical'):
+                text += f"Technical: {', '.join(cv_data['skills']['technical'])}\n"
+        
+        return text
 
 # Global fallback handler instance
 fallback_handler = FallbackHandler()
