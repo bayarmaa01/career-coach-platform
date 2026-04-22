@@ -76,7 +76,7 @@ const allowedOrigins = [
   'http://frontend-service:3100',
   process.env.FRONTEND_URL,
   process.env.CORS_ORIGIN
-].filter(Boolean);
+].filter((origin): origin is string => Boolean(origin));
 
 app.use(cors({
   origin: allowedOrigins,
@@ -140,7 +140,7 @@ app.get('/api/health', async (req: Request, res: Response) => {
       status: 'ERROR',
       timestamp: new Date().toISOString(),
       database: 'disconnected',
-      error: error.message
+      error: error instanceof Error ? error.message : 'Unknown error'
     });
   }
 });
@@ -165,10 +165,11 @@ app.use(errorHandler);
 
 // Start server
 if (NODE_ENV !== 'test') {
-  app.listen(PORT, '0.0.0.0', (): void => {
-    console.log(`🚀 Server is running on port ${PORT}`);
+  const portNumber = typeof PORT === 'string' ? parseInt(PORT, 10) : PORT;
+  app.listen(portNumber, '0.0.0.0', (): void => {
+    console.log(`🚀 Server is running on port ${portNumber}`);
     console.log(`📝 Environment: ${NODE_ENV}`);
-    console.log(`🏥 Health check: http://localhost:${PORT}/api/health`);
+    console.log(`🏥 Health check: http://localhost:${portNumber}/api/health`);
   });
 }
 

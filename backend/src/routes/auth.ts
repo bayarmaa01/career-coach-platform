@@ -125,7 +125,7 @@ router.post(
       res.status(500).json({ 
         success: false,
         message: "Server error during registration",
-        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+        error: process.env.NODE_ENV === 'development' ? (error instanceof Error ? error.message : 'Unknown error') : undefined
       });
     }
   }
@@ -226,7 +226,7 @@ router.post(
       res.status(500).json({ 
         success: false,
         message: "Server error during login",
-        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+        error: process.env.NODE_ENV === 'development' ? (error as Error).message : undefined
       });
     }
   }

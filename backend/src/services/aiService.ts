@@ -142,7 +142,7 @@ class AIService {
         },
       };
 
-      const response = await axios[method](`${this.baseURL}${endpoint}`, data, config);
+      const response = await axios.post(`${this.baseURL}${endpoint}`, data, config);
       return response;
     } catch (error: any) {
       logger.error(`AI Service request failed: ${endpoint}`, {
@@ -262,7 +262,7 @@ class AIService {
       const response = await this.makeRequest<any>('/health', {}, 'POST');
       return response.status === 200;
     } catch (error) {
-      logger.error('AI service health check failed', { error: error.message });
+      logger.error('AI service health check failed', { error: error instanceof Error ? error.message : 'Unknown error' });
       return false;
     }
   }

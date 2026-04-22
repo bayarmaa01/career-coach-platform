@@ -6,7 +6,6 @@
 import { Router } from 'express';
 import aiController from '../controllers/aiController';
 import { authenticateToken } from '../middleware/auth';
-import { rateLimiter } from '../middleware/rateLimiter';
 
 const router = Router();
 
@@ -16,9 +15,8 @@ const router = Router();
 router.use(authenticateToken);
 
 /**
- * Apply rate limiting to AI endpoints
+ * Rate limiting is handled globally in app.ts
  */
-router.use(rateLimiter);
 
 /**
  * @route POST /api/ai/generate-cv

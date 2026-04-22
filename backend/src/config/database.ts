@@ -20,7 +20,6 @@ const pool = new Pool({
   max: 20,
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 10000, // Increased timeout
-  retry: 3, // Add retry attempts
 });
 
 // Test connection on startup (with delay to allow database to be ready)
