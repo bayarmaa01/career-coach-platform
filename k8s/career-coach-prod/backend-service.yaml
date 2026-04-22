@@ -4,7 +4,7 @@ metadata:
   name: backend-service
   namespace: career-coach-prod
   labels:
-    app: backend-prod
+    app: backend
     tier: backend
 spec:
   type: ClusterIP
@@ -13,4 +13,4 @@ spec:
     targetPort: 5000
     protocol: TCP
   selector:
-    app: backend-prod
+    app: backend

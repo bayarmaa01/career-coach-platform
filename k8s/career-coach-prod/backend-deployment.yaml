@@ -4,17 +4,17 @@ metadata:
   name: backend-prod
   namespace: career-coach-prod
   labels:
-    app: backend-prod
+    app: backend
     tier: backend
 spec:
   replicas: 2
   selector:
     matchLabels:
-      app: backend-prod
+      app: backend
   template:
     metadata:
       labels:
-        app: backend-prod
+        app: backend
         tier: backend
     spec:
       containers:
@@ -59,20 +59,11 @@ spec:
               name: app-secrets
               key: POSTGRES_PASSWORD
         - name: REDIS_HOST
-          valueFrom:
-            configMapKeyRef:
-              name: app-config
-              key: REDIS_HOST
+          value: "redis-service"
         - name: REDIS_PORT
-          valueFrom:
-            configMapKeyRef:
-              name: app-config
-              key: REDIS_PORT
+          value: "6379"
         - name: REDIS_PASSWORD
-          valueFrom:
-            secretKeyRef:
-              name: app-secrets
-              key: REDIS_PASSWORD
+          value: "redispassword"
         - name: JWT_SECRET
           valueFrom:
             secretKeyRef:
@@ -84,20 +75,11 @@ spec:
               name: app-config
               key: JWT_EXPIRES_IN
         - name: FRONTEND_URL
-          valueFrom:
-            configMapKeyRef:
-              name: app-config
-              key: FRONTEND_URL
+          value: "http://frontend-service:3100"
         - name: CORS_ORIGIN
-          valueFrom:
-            configMapKeyRef:
-              name: app-config
-              key: CORS_ORIGIN
+          value: "http://frontend-service:3100"
         - name: AI_SERVICE_URL
-          valueFrom:
-            configMapKeyRef:
-              name: app-config
-              key: AI_SERVICE_URL
+          value: "http://ai-service:5100"
         - name: RATE_LIMIT_WINDOW_MS
           valueFrom:
             configMapKeyRef:

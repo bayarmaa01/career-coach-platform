@@ -4,7 +4,7 @@ metadata:
   name: frontend-prod
   namespace: career-coach-prod
   labels:
-    app: frontend-prod
+    app: frontend
     tier: frontend
 spec:
   replicas: 2
@@ -15,11 +15,11 @@ spec:
       maxUnavailable: 0
   selector:
     matchLabels:
-      app: frontend-prod
+      app: frontend
   template:
     metadata:
       labels:
-        app: frontend-prod
+        app: frontend
         tier: frontend
       annotations:
         build-hash: "${BUILD_HASH}"
@@ -28,7 +28,7 @@ spec:
       containers:
       - name: frontend
         image: frontend-prod:latest
-        imagePullPolicy: Always
+        imagePullPolicy: Never
         ports:
         - containerPort: 80
         env:
