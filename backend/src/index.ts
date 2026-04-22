@@ -70,8 +70,16 @@ app.use(morgan(NODE_ENV === 'production' ? 'combined' : 'dev'));
 app.use(limiter);
 
 // CORS configuration
+const allowedOrigins = [
+  'http://localhost:3100',
+  'http://localhost:3000',
+  'http://frontend-service:3100',
+  process.env.FRONTEND_URL,
+  process.env.CORS_ORIGIN
+].filter(Boolean);
+
 app.use(cors({
-  origin: ['http://localhost:3100', 'http://localhost:3000'],
+  origin: allowedOrigins,
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],

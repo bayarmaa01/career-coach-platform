@@ -23,31 +23,31 @@ const pool = new Pool({
   retry: 3, // Add retry attempts
 });
 
-// Test connection on startup
+// Test connection on startup (with delay to allow database to be ready)
 const testConnection = async () => {
   try {
     const client = await pool.connect();
     await client.query('SELECT NOW()');
     client.release();
-    console.log('✅ Connected to PostgreSQL database successfully');
+    console.log('Connected to PostgreSQL database successfully');
   } catch (error) {
-    console.error('❌ Database connection failed:', error);
-    console.log('🔄 Retrying connection in 5 seconds...');
-    setTimeout(testConnection, 5000);
+    console.error('Database connection failed:', error);
+    console.log('Retrying connection in 10 seconds...');
+    setTimeout(testConnection, 10000);
   }
 };
 
 pool.on('connect', () => {
-  console.log('✅ Connected to PostgreSQL database');
+  console.log('Connected to PostgreSQL database');
 });
 
 pool.on('error', (err) => {
-  console.error('❌ Unexpected error on idle client', err);
+  console.error('Unexpected error on idle client', err);
   // Don't exit, just log and retry
-  setTimeout(testConnection, 5000);
+  setTimeout(testConnection, 10000);
 });
 
-// Test connection on startup
-testConnection();
+// Test connection on startup with delay
+setTimeout(testConnection, 5000);
 
 export default pool;
