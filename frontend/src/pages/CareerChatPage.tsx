@@ -258,7 +258,7 @@ const CareerChatPage: React.FC = () => {
                       </div>
                     </div>
                   </div>
-                ))}
+                )}
 
                 {suggestions.length > 0 && !isLoading && (
                   <div className="flex items-start space-x-4">
