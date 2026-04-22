@@ -21,9 +21,9 @@ spec:
       labels:
         app: frontend-prod
         tier: frontend
-        annotations:
-          build-hash: "${BUILD_HASH}"
-          build-time: "${BUILD_TIME}"
+      annotations:
+        build-hash: "${BUILD_HASH}"
+        build-time: "${BUILD_TIME}"
     spec:
       containers:
       - name: frontend
