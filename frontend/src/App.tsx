@@ -12,6 +12,9 @@ import ResumeUpload from './pages/ResumeUpload';
 import CareerRecommendations from './pages/CareerRecommendations';
 import SkillGapAnalysis from './pages/SkillGapAnalysis';
 import AdminPanel from './pages/AdminPanel';
+import CreateCVPage from './pages/CreateCVPage';
+import CareerChatPage from './pages/CareerChatPage';
+import SkillRecommendationsPage from './pages/SkillRecommendationsPage';
 import ProtectedRoute from './components/ProtectedRoute';
 
 function App() {
@@ -68,6 +71,30 @@ function App() {
           element={
             <ProtectedRoute>
               <SkillGapAnalysis />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="create-cv"
+          element={
+            <ProtectedRoute>
+              <CreateCVPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="career-chat"
+          element={
+            <ProtectedRoute>
+              <CareerChatPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="skill-recommendations"
+          element={
+            <ProtectedRoute>
+              <SkillRecommendationsPage />
             </ProtectedRoute>
           }
         />

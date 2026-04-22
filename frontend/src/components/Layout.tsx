@@ -3,7 +3,7 @@ import { Outlet, Link, useNavigate } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState, AppDispatch } from '../store/store';
 import { logout } from '../store/slices/authSlice';
-import { User, LogOut, Home, FileText, TrendingUp, BarChart3, Settings } from 'lucide-react';
+import { User, LogOut, Home, FileText, TrendingUp, BarChart3, Settings, MessageSquare, Sparkles, Target } from 'lucide-react';
 
 const Layout: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
@@ -55,6 +55,27 @@ const Layout: React.FC = () => {
               >
                 <BarChart3 className="h-4 w-4" />
                 <span>Skill Analysis</span>
+              </Link>
+              <Link
+                to="/create-cv"
+                className="flex items-center space-x-1 text-gray-600 hover:text-primary-600 px-3 py-2 rounded-md text-sm font-medium"
+              >
+                <Sparkles className="h-4 w-4" />
+                <span>Create CV</span>
+              </Link>
+              <Link
+                to="/career-chat"
+                className="flex items-center space-x-1 text-gray-600 hover:text-primary-600 px-3 py-2 rounded-md text-sm font-medium"
+              >
+                <MessageSquare className="h-4 w-4" />
+                <span>AI Chat</span>
+              </Link>
+              <Link
+                to="/skill-recommendations"
+                className="flex items-center space-x-1 text-gray-600 hover:text-primary-600 px-3 py-2 rounded-md text-sm font-medium"
+              >
+                <Target className="h-4 w-4" />
+                <span>Recommendations</span>
               </Link>
               
               {user?.role === 'admin' && (
