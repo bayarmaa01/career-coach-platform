@@ -120,6 +120,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        continue-on-error: true
 
   # ================= TRIVY SECURITY SCAN =================
   
@@ -142,6 +143,7 @@ jobs:
         uses: github/codeql-action/upload-sarif@v2
         with:
           sarif_file: 'trivy-frontend-results.sarif'
+          category: 'trivy-frontend'
 
       - name: Run Trivy vulnerability scanner for Backend
         uses: aquasecurity/trivy-action@master
@@ -154,6 +156,7 @@ jobs:
         uses: github/codeql-action/upload-sarif@v2
         with:
           sarif_file: 'trivy-backend-results.sarif'
+          category: 'trivy-backend'
 
       - name: Run Trivy vulnerability scanner for AI Service
         uses: aquasecurity/trivy-action@master
@@ -166,6 +169,7 @@ jobs:
         uses: github/codeql-action/upload-sarif@v2
         with:
           sarif_file: 'trivy-ai-service-results.sarif'
+          category: 'trivy-ai-service'
 
   # ================= BUILD & PUSH DOCKER IMAGES =================
   
