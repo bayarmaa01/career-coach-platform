@@ -218,13 +218,38 @@ class AIService {
         targetRole: request.target_role
       });
 
-      const response = await this.makeRequest<RecommendationsResponse>('/recommendations-lite', request);
+      // Transform the request to match AI service expectations
+      const resumeText = `Skills: ${request.skills.join(', ')}\nInterests: ${request.interests.join(', ')}\nTarget Role: ${request.target_role || 'Not specified'}\nExperience Level: ${request.experience_level || 'Not specified'}`;
+      
+      const aiRequest = {
+        text: resumeText,
+        skills: request.skills
+      };
+
+      const response = await this.makeRequest<any>('/analyze-resume', aiRequest);
+      
+      // Transform AI service response to match expected format
+      const transformedResponse: RecommendationsResponse = {
+        success: true,
+        career_paths: [
+          {
+            title: "Career Recommendation",
+            description: response.data.recommendation || "Based on your skills and interests",
+            required_skills: response.data.skills_matched || request.skills,
+            existing_skills: request.skills,
+            missing_skills: [],
+            salary_range: "Competitive",
+            growth_potential: "High",
+            match_score: Math.round((response.data.confidence || 0.8) * 100)
+          }
+        ]
+      };
       
       logger.info('Recommendations generated', { 
-        success: response.data.success,
-        careerPathsCount: response.data.career_paths?.length || 0
+        success: transformedResponse.success,
+        careerPathsCount: transformedResponse.career_paths?.length || 0
       });
-      return response.data;
+      return transformedResponse;
     } catch (error: any) {
       logger.error('Recommendations generation failed', { error: error.message });
       throw error;
