@@ -17,7 +17,7 @@ data:
   DATABASE_USER: {{ .Values.postgresql.auth.postgresUsername | quote }}
   REDIS_HOST: {{ include "career-coach.redis.fullname" . | quote }}
   REDIS_PORT: "6379"
-  AI_SERVICE_URL: "http://{{ include \"career-coach.fullname\" . }}-ai-service:8000"
+  AI_SERVICE_URL: "http://{{ include \"career-coach.fullname\" . }}-ai-service:5100"
   PYTHONPATH: {{ .Values.aiService.env.PYTHONPATH | quote }}
   LOG_LEVEL: {{ .Values.aiService.env.LOG_LEVEL | quote }}
   FRONTEND_URL: {{ .Values.ingress.hosts[0].host | quote }}
