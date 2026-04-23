@@ -72,6 +72,87 @@ async def health_check():
 async def root():
     return {"message": "AI Career Coach Service", "status": "running"}
 
+@app.post("/recommendations-lite")
+async def get_recommendations_lite(request: dict):
+    """Get career recommendations without CV - mock implementation"""
+    try:
+        skills = request.get("skills", [])
+        interests = request.get("interests", [])
+        
+        # Mock logic based on skills
+        recommendations = []
+        
+        # Default recommendations
+        recommendations.append({
+            "title": "Full Stack Developer",
+            "description": "Develop both frontend and backend applications using modern web technologies",
+            "matchScore": 85
+        })
+        
+        recommendations.append({
+            "title": "DevOps Engineer",
+            "description": "Automate and streamline software development and deployment processes",
+            "matchScore": 75
+        })
+        
+        recommendations.append({
+            "title": "Technical Lead",
+            "description": "Lead development teams and make technical decisions for projects",
+            "matchScore": 70
+        })
+        
+        # Skill-based recommendations
+        if "JavaScript" in skills:
+            recommendations.insert(0, {
+                "title": "Frontend Developer",
+                "description": "Build user interfaces and web applications using JavaScript frameworks",
+                "matchScore": 90
+            })
+            
+        if "Python" in skills:
+            recommendations.insert(0, {
+                "title": "Backend Developer",
+                "description": "Develop server-side applications and APIs using Python",
+                "matchScore": 88
+            })
+            
+        if "React" in skills or "Angular" in skills or "Vue" in skills:
+            recommendations.append({
+                "title": "UI/UX Developer",
+                "description": "Create user interfaces and improve user experience",
+                "matchScore": 82
+            })
+            
+        if "Docker" in skills or "Kubernetes" in skills:
+            recommendations.append({
+                "title": "Cloud Engineer",
+                "description": "Design and manage cloud infrastructure and deployments",
+                "matchScore": 80
+            })
+        
+        # Interest-based recommendations
+        if any("data" in interest.lower() for interest in interests):
+            recommendations.append({
+                "title": "Data Scientist",
+                "description": "Analyze data and build machine learning models",
+                "matchScore": 78
+            })
+            
+        if any("mobile" in interest.lower() for interest in interests):
+            recommendations.append({
+                "title": "Mobile Developer",
+                "description": "Build mobile applications for iOS and Android",
+                "matchScore": 76
+            })
+        
+        # Sort by match score and return top recommendations
+        recommendations.sort(key=lambda x: x["matchScore"], reverse=True)
+        
+        return {"recommendations": recommendations[:5]}  # Return top 5
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error generating recommendations: {str(e)}")
+
 @app.get("/metrics", response_class=PlainTextResponse)
 async def metrics():
     try:

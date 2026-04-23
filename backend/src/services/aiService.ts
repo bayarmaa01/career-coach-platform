@@ -218,31 +218,12 @@ class AIService {
         targetRole: request.target_role
       });
 
-      // Transform the request to match AI service expectations
-      const resumeText = `Skills: ${request.skills.join(', ')}\nInterests: ${request.interests.join(', ')}\nTarget Role: ${request.target_role || 'Not specified'}\nExperience Level: ${request.experience_level || 'Not specified'}`;
-      
-      const aiRequest = {
-        text: resumeText,
-        skills: request.skills
-      };
-
-      const response = await this.makeRequest<any>('/analyze-resume', aiRequest);
+      const response = await this.makeRequest<any>('/recommendations-lite', request);
       
       // Transform AI service response to match expected format
       const transformedResponse: RecommendationsResponse = {
         success: true,
-        career_paths: [
-          {
-            title: "Career Recommendation",
-            description: response.data.recommendation || "Based on your skills and interests",
-            required_skills: response.data.skills_matched || request.skills,
-            existing_skills: request.skills,
-            missing_skills: [],
-            salary_range: "Competitive",
-            growth_potential: "High",
-            match_score: Math.round((response.data.confidence || 0.8) * 100)
-          }
-        ]
+        career_paths: response.data.recommendations || []
       };
       
       logger.info('Recommendations generated', { 
