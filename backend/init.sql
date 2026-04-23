@@ -25,7 +25,8 @@ CREATE TABLE IF NOT EXISTS resumes (
     status VARCHAR(20) DEFAULT 'uploaded' CHECK (status IN ('uploaded', 'processing', 'completed', 'failed')),
     uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     processed_at TIMESTAMP,
-    analysis_data JSONB
+    analysis_data JSONB,
+    content_text TEXT
 );
 
 -- Skills table

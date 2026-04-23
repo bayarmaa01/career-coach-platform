@@ -74,11 +74,11 @@ router.post('/upload', authenticateToken, upload.single('resume'), async (req, r
       
       console.log('AI service called successfully:', aiResponse.status);
       
-      // Store AI analysis results
+      // Store AI analysis results and resume text content
       const analysis = aiResponse.data;
       await pool.query(
-        'UPDATE resumes SET status = $1, analysis_data = $2 WHERE id = $3',
-        ['completed', JSON.stringify(analysis), resume.id]
+        'UPDATE resumes SET status = $1, analysis_data = $2, content_text = $3 WHERE id = $4',
+        ['completed', JSON.stringify(analysis), fileContent, resume.id]
       );
 
       return res.status(201).json({
