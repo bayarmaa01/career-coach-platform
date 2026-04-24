@@ -82,14 +82,16 @@ export class AIController {
 
       res.json(response);
     } catch (error: any) {
+      console.error("AI CHAT ERROR:", error.response?.data || error.message);
       logger.error('Chat controller error', { 
         error: error.message,
+        response: error.response?.data,
         userId: (req as any).user?.id
       });
 
       res.status(500).json({
         success: false,
-        error: error.message || 'Failed to process chat message'
+        error: error.message || 'Failed to process chat request'
       });
     }
   }
@@ -127,8 +129,10 @@ export class AIController {
 
       res.json(response);
     } catch (error: any) {
+      console.error("AI RECOMMENDATIONS ERROR:", error.response?.data || error.message);
       logger.error('Recommendations controller error', { 
         error: error.message,
+        response: error.response?.data,
         userId: (req as any).user?.id
       });
 

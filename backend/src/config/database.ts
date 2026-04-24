@@ -31,8 +31,8 @@ const testConnection = async () => {
     console.log('Connected to PostgreSQL database successfully');
   } catch (error) {
     console.error('Database connection failed:', error);
-    console.log('Retrying connection in 10 seconds...');
-    setTimeout(testConnection, 10000);
+    console.log('Database not available - continuing without database for AI testing');
+    // Don't retry for now to allow AI testing
   }
 };
 
@@ -42,8 +42,7 @@ pool.on('connect', () => {
 
 pool.on('error', (err) => {
   console.error('Unexpected error on idle client', err);
-  // Don't exit, just log and retry
-  setTimeout(testConnection, 10000);
+  // Don't exit, just log
 });
 
 // Test connection on startup with delay

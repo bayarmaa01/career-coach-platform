@@ -53,7 +53,7 @@ class GeminiService {
       throw new Error('Gemini API key is not configured');
     }
 
-    const url = `${this.baseURL}/models/${model}:generateContent?key=${this.apiKey}`;
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${this.apiKey}`;
 
     const requestBody: GeminiRequest = {
       contents: [

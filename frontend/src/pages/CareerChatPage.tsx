@@ -116,16 +116,18 @@ const CareerChatPage: React.FC = () => {
         throw new Error(response.data.error || 'Failed to get response');
       }
     } catch (error: any) {
-      showToastMessage(error.message || 'Failed to send message. Please try again.', 'error');
+      console.error('Chat error:', error);
+      const errorMessage = error.response?.data?.error || error.message || 'Failed to send message. Please try again.';
+      showToastMessage(errorMessage, 'error');
 
-      const errorMessage: ChatMessage = {
+      const errorMessageObj: ChatMessage = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: 'I apologize, but I\'m having trouble responding right now. Please try again later.',
+        content: `I apologize, but I encountered an error: ${errorMessage}. Please try again later.`,
         timestamp: new Date().toISOString(),
       };
 
-      setMessages(prev => [...prev, errorMessage]);
+      setMessages(prev => [...prev, errorMessageObj]);
     } finally {
       setIsLoading(false);
     }
