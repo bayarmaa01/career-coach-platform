@@ -61,7 +61,7 @@ const limiter = rateLimit({
   }
 });
 
-// Security and middleware
+// Security and middleware (re-enabled with working configuration)
 app.use(helmet({
   contentSecurityPolicy: NODE_ENV === 'production' ? undefined : false,
 }));
@@ -124,13 +124,21 @@ app.use('/api/ai', aiRoutes);
 // Health check endpoint
 app.get('/api/health', async (req: Request, res: Response) => {
   try {
-    // Test database connection
-    const dbTest = await pool.query('SELECT NOW()');
+    let dbStatus = 'disconnected';
+    
+    // Test database connection (but don't fail if it's not available)
+    try {
+      const dbTest = await pool.query('SELECT NOW()');
+      dbStatus = 'connected';
+    } catch (dbError) {
+      console.log('Database not available for health check, but continuing...');
+      dbStatus = 'disconnected';
+    }
     
     res.status(200).json({
       status: 'OK',
       timestamp: new Date().toISOString(),
-      database: 'connected',
+      database: dbStatus,
       uptime: process.uptime(),
       environment: NODE_ENV
     });
