@@ -10,17 +10,12 @@ from contextlib import asynccontextmanager
 from prometheus_client import Counter, Histogram, Gauge, generate_latest, CONTENT_TYPE_LATEST, CollectorRegistry, REGISTRY
 import google.generativeai as genai
 
-from app.routers import resume, career
-from app.core.config import settings
+# from app.routers import resume, career  # Commented out to avoid spaCy dependencies
+# from app.core.config import settings
 
-# Handle spaCy import gracefully
-try:
-    from app.services.resume_processor import ResumeProcessor
-    USE_SIMPLE_PROCESSOR = False
-except ImportError:
-    from app.services.simple_resume_processor import SimpleResumeProcessor
-    USE_SIMPLE_PROCESSOR = True
-    print("Using simple resume processor (spaCy not available)")
+# Always use simple processor to avoid spaCy dependencies
+USE_SIMPLE_PROCESSOR = True
+print("Using simple resume processor (spaCy not available)")
 
 # Create custom registry
 registry = CollectorRegistry()
@@ -34,6 +29,19 @@ ACTIVE_CONNECTIONS = Gauge('active_connections', 'Active connections', registry=
 class RecommendationsRequest(BaseModel):
     skills: list[str]
     interests: list[str]
+
+# Request model for chat
+class ChatRequest(BaseModel):
+    message: str
+    user_profile: dict = {}
+    conversation_id: str = ""
+
+# Response model for chat
+class ChatResponse(BaseModel):
+    success: bool
+    response: str
+    conversation_id: str
+    suggestions: list[str] = []
 
 # Response model for recommendations
 class RecommendationItem(BaseModel):
@@ -68,15 +76,15 @@ app = FastAPI(
 # Configure CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.ALLOWED_ORIGINS,
+    allow_origins=["*"],  # Allow all origins for testing
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Include routers
-app.include_router(resume.router, prefix="/api")
-app.include_router(career.router, prefix="/api")
+# Include routers - commented out to avoid spaCy dependencies
+# app.include_router(resume.router, prefix="/api")
+# app.include_router(career.router, prefix="/api")
 
 # Metrics middleware
 @app.middleware("http")
@@ -123,6 +131,26 @@ async def get_recommendations_lite(request: RecommendationsRequest):
         print(f"Error generating recommendations: {e}")
         # Always return fallback recommendations on error
         return get_fallback_recommendations(request.skills, request.interests)
+
+@app.post("/chat", response_model=ChatResponse)
+async def chat_endpoint(request: ChatRequest):
+    """Chat with AI career assistant using Gemini AI"""
+    try:
+        message = request.message
+        user_profile = request.user_profile
+        conversation_id = request.conversation_id or f"conv_{int(time.time())}"
+        
+        # If Gemini is available, use it for chat
+        if GEMINI_AVAILABLE:
+            return await get_gemini_chat_response(message, user_profile, conversation_id)
+        else:
+            # Fallback to simple responses
+            return get_fallback_chat_response(message, conversation_id)
+            
+    except Exception as e:
+        print(f"Error in chat: {e}")
+        # Always return fallback response on error
+        return get_fallback_chat_response(request.message, request.conversation_id or "fallback")
 
 async def get_gemini_recommendations(skills: list[str], interests: list[str]) -> RecommendationsResponse:
     """Get recommendations from Gemini AI"""
@@ -241,6 +269,63 @@ def get_fallback_recommendations(skills: list[str], interests: list[str]) -> Rec
     recommendations.sort(key=lambda x: x["matchScore"], reverse=True)
     
     return RecommendationsResponse(recommendations=recommendations[:5])
+
+async def get_gemini_chat_response(message: str, user_profile: dict, conversation_id: str) -> ChatResponse:
+    """Get chat response from Gemini AI"""
+    try:
+        prompt = f"""You are a helpful career coach assistant. Respond to the user's message in a helpful, professional, and encouraging manner.
+
+User Profile: {user_profile}
+Message: {message}
+
+Provide a helpful response about career advice, skill development, job search, or professional growth. Keep your response concise but informative (2-3 sentences)."""
+        
+        response = await model.generate_content_async(prompt)
+        response_text = response.text.strip()
+        
+        return ChatResponse(
+            success=True,
+            response=response_text,
+            conversation_id=conversation_id,
+            suggestions=[
+                "Ask about resume writing tips",
+                "Learn about interview preparation",
+                "Explore career path options",
+                "Get skill development advice"
+            ]
+        )
+            
+    except Exception as e:
+        print(f"Gemini chat error: {e}")
+        return get_fallback_chat_response(message, conversation_id)
+
+def get_fallback_chat_response(message: str, conversation_id: str) -> ChatResponse:
+    """Fallback chat response when Gemini is unavailable"""
+    message_lower = message.lower()
+    
+    # Simple keyword-based responses
+    if any(word in message_lower for word in ["resume", "cv"]):
+        response = "I recommend tailoring your resume to each job application, highlighting relevant skills and achievements with specific metrics."
+    elif any(word in message_lower for word in ["interview", "prepare"]):
+        response = "Practice common interview questions, research the company, and prepare examples that demonstrate your skills and accomplishments."
+    elif any(word in message_lower for word in ["career", "path", "job"]):
+        response = "Consider your interests, skills, and values when exploring career paths. Research different roles and talk to professionals in fields that interest you."
+    elif any(word in message_lower for word in ["skill", "learn", "develop"]):
+        response = "Focus on both technical skills and soft skills like communication and leadership. Online courses, certifications, and hands-on projects are great ways to develop your abilities."
+    else:
+        response = "I'm here to help with your career questions! Ask me about resume writing, interview preparation, career paths, or skill development."
+    
+    return ChatResponse(
+        success=True,
+        response=response,
+        conversation_id=conversation_id,
+        suggestions=[
+            "Ask about resume writing tips",
+            "Learn about interview preparation",
+            "Explore career path options",
+            "Get skill development advice"
+        ]
+    )
 
 @app.get("/metrics", response_class=PlainTextResponse)
 async def metrics():

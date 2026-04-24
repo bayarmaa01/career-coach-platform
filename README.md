@@ -44,11 +44,13 @@
 ## ✨ Features
 
 ### 🤖 AI-Powered Career Intelligence
-- **Resume Analysis**: Advanced NLP parsing and skill extraction
-- **Career Path Recommendations**: ML-driven personalized suggestions
-- **Skill Gap Analysis**: Identify and bridge competency gaps
-- **Interview Preparation**: AI-generated practice questions and feedback
+- **Resume Analysis**: Advanced NLP parsing and skill extraction using Google Gemini AI
+- **Career Path Recommendations**: ML-driven personalized suggestions with skill matching
+- **Skill Gap Analysis**: Identify and bridge competency gaps with learning resources
+- **AI Career Chat**: Interactive chat assistant for career guidance and interview preparation
+- **Interview Preparation**: AI-generated practice questions and personalized feedback
 - **Salary Insights**: Market-based compensation analysis
+- **CV Generation**: AI-powered resume creation and optimization
 
 ### 🎯 User Experience
 - **Interactive Dashboard**: Real-time career progress tracking
@@ -88,7 +90,10 @@
 | | PostgreSQL | 15+ | Primary Database |
 | | Redis | 7+ | Caching & Sessions |
 | | JWT | 9.0.2 | Authentication |
-| **AI Service** | Python | 3.11+ | AI/ML Ecosystem |
+| **AI Service** | Google Gemini AI | Latest | AI/ML Ecosystem |
+| | Node.js Integration | 20.0.0+ | AI Service Integration |
+| | TypeScript | 5.2.2 | Type Safety for AI |
+| | Python | 3.11+ | Legacy AI Support |
 | | FastAPI | 0.104.1 | Modern API Framework |
 | | spaCy | 3.7.2 | Natural Language Processing |
 | | Transformers | 4.36.0 | ML Models |
@@ -389,8 +394,26 @@ cp .env.example .env
 npm run dev
 ```
 
-#### AI Service Setup
+#### AI Service Setup (Gemini Integration)
 
+The platform now uses Google Gemini AI for enhanced career coaching capabilities.
+
+#### 1. Get Gemini API Key
+```bash
+# Visit Google AI Studio: https://makersuite.google.com/app/apikey
+# Create a new API key for your project
+# Copy the API key for configuration
+```
+
+#### 2. Configure Environment Variables
+```bash
+# Add to your .env file
+GEMINI_API_KEY=your_actual_gemini_api_key
+GEMINI_PROJECT_NAME=your_project_name
+GEMINI_PROJECT_NUMBER=your_project_number
+```
+
+#### 3. AI Service (Legacy - Optional)
 ```bash
 cd ai-service
 
@@ -404,9 +427,11 @@ pip install -r requirements.txt
 # Download ML models
 python -m spacy download en_core_web_sm
 
-# Start service
+# Start service (if needed for legacy features)
 uvicorn main:app --reload --host 0.0.0.0 --port 5100
 ```
+
+**Note**: The platform primarily uses Gemini AI directly through the backend service. The Python AI service is optional and provides legacy support.
 
 ### Docker Setup
 
@@ -451,6 +476,9 @@ JWT_SECRET=your_jwt_secret_key
 JWT_EXPIRES_IN=7d
 
 # AI Service Configuration
+GEMINI_API_KEY=your_gemini_api_key
+GEMINI_PROJECT_NAME=your_project_name
+GEMINI_PROJECT_NUMBER=your_project_number
 AI_SERVICE_URL=http://localhost:5100
 AI_SERVICE_TIMEOUT=30000
 
@@ -490,6 +518,11 @@ VITE_SENTRY_DSN=your_sentry_dsn
 ### AI Service Environment (.env)
 
 ```bash
+# Gemini AI Configuration
+GEMINI_API_KEY=your_gemini_api_key
+GEMINI_PROJECT_NAME=your_project_name
+GEMINI_PROJECT_NUMBER=your_project_number
+
 # Service Configuration
 PYTHONPATH=/app
 LOG_LEVEL=INFO
@@ -509,7 +542,7 @@ MAX_FILE_SIZE=10485760
 SUPPORTED_FORMATS=pdf,docx,txt
 PROCESSING_TIMEOUT=300
 
-# External APIs
+# External APIs (Legacy)
 OPENAI_API_KEY=your_openai_key
 HUGGINGFACE_API_KEY=your_hf_key
 ```
@@ -590,6 +623,38 @@ Authorization: Bearer jwt_token
 }
 ```
 
+### AI Career Chat
+
+```bash
+# Chat with AI Career Assistant
+POST /api/ai/chat
+Content-Type: application/json
+Authorization: Bearer jwt_token
+
+{
+  "message": "What skills do I need for a software engineering job?",
+  "user_profile": {
+    "name": "John Doe",
+    "skills": ["JavaScript", "React"],
+    "experience": "2 years",
+    "target_role": "Software Engineer"
+  },
+  "conversation_id": "optional_conversation_id"
+}
+
+# Response
+{
+  "success": true,
+  "response": "To become a software engineer, you'll need strong programming fundamentals...",
+  "conversation_id": "generated_conversation_id",
+  "suggestions": [
+    "How can I improve my resume?",
+    "What are the best career paths for programmers?",
+    "How do I prepare for technical interviews?"
+  ]
+}
+```
+
 ### Career Recommendations
 
 ```bash
@@ -616,6 +681,40 @@ Authorization: Bearer jwt_token
           "duration": "3 months"
         }
       ]
+    }
+  ]
+}
+```
+
+### Smart Recommendations (Without Resume)
+
+```bash
+# Get AI-powered recommendations without resume
+POST /api/ai/recommendations-lite
+Content-Type: application/json
+Authorization: Bearer jwt_token
+
+{
+  "skills": ["JavaScript", "React", "Node.js"],
+  "interests": ["Web Development", "Programming"],
+  "target_role": "Full Stack Developer",
+  "experience_level": "Mid-level"
+}
+
+# Response
+{
+  "success": true,
+  "career_paths": [
+    {
+      "title": "Full Stack Developer",
+      "description": "Develop both frontend and backend applications",
+      "required_skills": ["JavaScript", "React", "Node.js", "Database"],
+      "existing_skills": ["JavaScript", "React", "Node.js"],
+      "missing_skills": [],
+      "salary_range": "$80,000 - $150,000",
+      "growth_potential": "High",
+      "industry_demand": "Very High",
+      "match_score": 0.9
     }
   ]
 }
@@ -1153,6 +1252,55 @@ npm run test:performance
   - [ ] Zero-knowledge encryption
   - [ ] GDPR compliance
   - [ ] SOC 2 certification
+
+---
+
+## 🔧 Troubleshooting
+
+### Common Issues
+
+#### AI Chat Not Working
+**Problem**: AI chat returns errors or no response
+**Solution**: 
+1. Check your Gemini API key configuration
+2. Ensure the API key is valid and active
+3. Verify the project name and number are correct
+4. Check network connectivity to Google's API
+
+```bash
+# Test Gemini API connection
+curl -H "Content-Type: application/json" \
+-d '{"contents":[{"parts":[{"text":"Hello"}]}]}' \
+"https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=YOUR_API_KEY"
+```
+
+#### Database Connection Issues
+**Problem**: Backend fails to start due to database errors
+**Solution**:
+1. Ensure PostgreSQL is running
+2. Check database credentials in .env
+3. Create the database if it doesn't exist
+4. The AI features work even without database (for testing)
+
+#### Environment Variables Not Loading
+**Problem**: Configuration not being applied
+**Solution**:
+1. Copy `.env.example` to `.env`
+2. Ensure no trailing spaces in values
+3. Restart the application after changes
+
+### Known Issues
+
+- **API Key Security**: Never commit API keys to version control
+- **Database Dependencies**: Some features work without database for development
+- **Authentication**: Temporarily disabled for AI testing (re-enable in production)
+
+### Getting Help
+
+1. **Check Logs**: Review application logs for detailed error messages
+2. **Verify Configuration**: Ensure all environment variables are set
+3. **Test API Keys**: Validate API keys work independently
+4. **Community Support**: Open an issue on GitHub for help
 
 ---
 
