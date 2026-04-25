@@ -60,26 +60,25 @@ class GeminiService {
       try {
         const url = `https://generativelanguage.googleapis.com/v1/models/${currentModel}:generateContent?key=${this.apiKey}`;
 
-    const requestBody: GeminiRequest = {
-      contents: [
-        {
-          parts: [
+        const requestBody: GeminiRequest = {
+          contents: [
             {
-              text: prompt
+              parts: [
+                {
+                  text: prompt
+                }
+              ]
             }
-          ]
-        }
-      ],
-      generationConfig: {
-        temperature: 0.7,
-        topK: 40,
-        topP: 0.95,
-        maxOutputTokens: 1024,
-      }
-    };
+          ],
+          generationConfig: {
+            temperature: 0.7,
+            topK: 40,
+            topP: 0.95,
+            maxOutputTokens: 1024,
+          }
+        };
 
-    try {
-      const response = await axios.post<GeminiResponse>(url, requestBody, {
+        const response = await axios.post<GeminiResponse>(url, requestBody, {
         headers: {
           'Content-Type': 'application/json',
         },
@@ -90,16 +89,19 @@ class GeminiService {
       } else {
         throw new Error('No response from Gemini API');
       }
-    } catch (error) {
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const axiosError = axios.isAxiosError(error) ? error : undefined;
+      
       console.error(`Gemini API error with model ${currentModel}:`, {
-      message: error.message,
-      status: error.response?.status,
-      statusText: error.response?.statusText,
+      message: errorMessage,
+      status: axiosError?.response?.status,
+      statusText: axiosError?.response?.statusText,
       // Don't log the full error object as it contains the API key
     });
-      if (axios.isAxiosError(error)) {
-        const status = error.response?.status;
-        const statusText = error.response?.statusText;
+      if (axiosError) {
+        const status = axiosError.response?.status;
+        const statusText = axiosError.response?.statusText;
         
         // If it's a 404 or 400, try the next model
         if (status === 404 || status === 400) {
@@ -113,7 +115,7 @@ class GeminiService {
           throw new Error(`Gemini API request failed: ${status} ${statusText}`);
         }
       }
-      throw error;
+      throw new Error(errorMessage);
     }
     }
     
