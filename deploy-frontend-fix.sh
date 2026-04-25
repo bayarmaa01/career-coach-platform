@@ -78,7 +78,7 @@ spec:
         - containerPort: 80
         env:
         - name: VITE_API_URL
-          value: "http://backend-service:4100/api"
+          value: "http://backend-service:4100"
         - name: VITE_AI_SERVICE_URL
           value: "http://ai-service:5100"
         - name: BUILD_HASH
