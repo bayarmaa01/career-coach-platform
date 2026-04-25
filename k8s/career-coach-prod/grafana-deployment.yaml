@@ -30,10 +30,10 @@ spec:
           value: "admin"
         - name: GF_INSTALL_PLUGINS
           value: "grafana-clock-panel,grafana-simple-json-datasource"
-        - name: GF_SERVER_DOMAIN
-          value: "localhost"
-        - name: GF_SERVER_ROOT_URL
-          value: "http://localhost:3003"
+        - name: GF_SERVER_HTTP_ADDR
+          value: "0.0.0.0"
+        - name: GF_SERVER_HTTP_PORT
+          value: "3000"
         - name: GF_PATHS_PROVISIONING
           value: "/etc/grafana/provisioning"
         - name: GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH
