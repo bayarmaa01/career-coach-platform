@@ -53,7 +53,12 @@ class GeminiService {
       throw new Error('Gemini API key is not configured');
     }
 
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${this.apiKey}`;
+    // Try different model names if the first one fails
+    const models = ['gemini-1.5-flash-latest', 'gemini-1.5-flash', 'gemini-pro', 'gemini-1.0-pro'];
+    
+    for (const currentModel of models) {
+      try {
+        const url = `https://generativelanguage.googleapis.com/v1/models/${currentModel}:generateContent?key=${this.apiKey}`;
 
     const requestBody: GeminiRequest = {
       contents: [
@@ -86,12 +91,34 @@ class GeminiService {
         throw new Error('No response from Gemini API');
       }
     } catch (error) {
-      console.error('Gemini API error:', error);
+      console.error(`Gemini API error with model ${currentModel}:`, {
+      message: error.message,
+      status: error.response?.status,
+      statusText: error.response?.statusText,
+      // Don't log the full error object as it contains the API key
+    });
       if (axios.isAxiosError(error)) {
-        throw new Error(`Gemini API request failed: ${error.response?.status} ${error.response?.statusText}`);
+        const status = error.response?.status;
+        const statusText = error.response?.statusText;
+        
+        // If it's a 404 or 400, try the next model
+        if (status === 404 || status === 400) {
+          if (currentModel === models[models.length - 1]) {
+            // Last model failed, throw the error
+            throw new Error(`Gemini API request failed: ${status} ${statusText}. All models failed.`);
+          }
+          continue; // Try next model
+        } else {
+          // For other errors, throw immediately
+          throw new Error(`Gemini API request failed: ${status} ${statusText}`);
+        }
       }
       throw error;
     }
+    }
+    
+    // If we get here, all models failed
+    throw new Error('Gemini API request failed: All available models failed');
   }
 
   async analyzeResume(resumeText: string): Promise<any> {
