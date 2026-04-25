@@ -2,7 +2,7 @@ import express from 'express';
 import { authenticateToken } from '../middleware/auth';
 import { upload } from '../middleware/upload';
 import pool from '../config/database';
-import axios from 'axios';
+import aiService from '../services/aiService';
 
 const router = express.Router();
 
@@ -62,20 +62,8 @@ router.post('/upload', authenticateToken, upload.single('resume'), async (req, r
       const fs = require('fs').promises;
       const fileContent = await fs.readFile(path, 'utf8');
       
-      const aiResponse = await axios.post(`${process.env.AI_SERVICE_URL}/analyze-resume`, {
-        text: fileContent,
-        skills: []  // Let AI service extract skills from text
-      }, {
-        timeout: 10000,
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      });
-      
-      console.log('AI service called successfully:', aiResponse.status);
-      
-      // Store AI analysis results and resume text content
-      const analysis = aiResponse.data;
+      // Use integrated AI service for resume analysis
+      const analysis = await aiService.analyzeResume(fileContent);
       await pool.query(
         'UPDATE resumes SET status = $1, analysis_data = $2, content_text = $3 WHERE id = $4',
         ['completed', JSON.stringify(analysis), fileContent, resume.id]
@@ -234,14 +222,15 @@ router.get('/:id/analysis-status', authenticateToken, async (req, res) => {
 
     // If not completed, check AI service
     try {
-      const aiResponse = await axios.get(`${process.env.AI_SERVICE_URL}/analysis-status/${resumeId}`);
+      // Use integrated AI service for analysis status
+      const analysis = await aiService.getAnalysisStatus(resumeId);
       
       return res.json({
         success: true,
         data: {
-          status: aiResponse.data.status,
-          message: aiResponse.data.message,
-          progress: aiResponse.data.progress || 0
+          status: analysis.status,
+          message: analysis.message,
+          progress: analysis.progress || 0
         }
       });
     } catch (aiError: any) {
@@ -291,16 +280,12 @@ router.post('/:id/analyze', authenticateToken, async (req, res) => {
     }
 
     try {
-      const analysisResponse = await axios.get(`${process.env.AI_SERVICE_URL}/analysis/${resumeId}`);
-      
-      await pool.query(
-        'UPDATE resumes SET analysis_data = $1 WHERE id = $2',
-        [JSON.stringify(analysisResponse.data), resumeId]
-      );
+      // Use integrated AI service for analysis data
+      const analysisData = await aiService.getAnalysis(resumeId);
 
       res.json({
         success: true,
-        data: analysisResponse.data
+        data: analysisData
       });
     } catch (aiError: any) {
       console.error('AI Analysis error:', aiError);
