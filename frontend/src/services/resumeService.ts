@@ -7,7 +7,7 @@ export const resumeService = {
     formData.append('resume', file);
     
     try {
-      const response = await api.post('/api/resumes/upload', formData, {
+      const response = await api.post('/resumes/upload', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
@@ -49,7 +49,7 @@ export const resumeService = {
 
   getUserResumes: async (): Promise<Resume[]> => {
     try {
-      const response = await api.get('/api/resumes');
+      const response = await api.get('/resumes');
       return response.data.data || response.data; // Handle both wrapped and unwrapped responses
     } catch (error: any) {
       console.error('Get resumes error:', error);
@@ -59,7 +59,7 @@ export const resumeService = {
 
   deleteResume: async (resumeId: string): Promise<void> => {
     try {
-      await api.delete(`/api/resumes/${resumeId}`);
+      await api.delete(`/resumes/${resumeId}`);
     } catch (error: any) {
       console.error('Delete resume error:', error);
       throw new Error(`Failed to delete resume: ${error.message}`);
@@ -68,7 +68,7 @@ export const resumeService = {
 
   analyzeResume: async (resumeId: string): Promise<ResumeAnalysis> => {
     try {
-      const response = await api.post(`/api/resumes/${resumeId}/analyze`);
+      const response = await api.post(`/resumes/${resumeId}/analyze`);
       return response.data.data || response.data; // Handle both wrapped and unwrapped responses
     } catch (error: any) {
       console.error('Analyze resume error:', error);
@@ -78,7 +78,7 @@ export const resumeService = {
 
   getResumeAnalysis: async (resumeId: string): Promise<ResumeAnalysis> => {
     try {
-      const response = await api.get(`/api/resumes/${resumeId}/analysis`);
+      const response = await api.get(`/resumes/${resumeId}/analysis`);
       return response.data.data || response.data; // Handle both wrapped and unwrapped responses
     } catch (error: any) {
       console.error('Get analysis error:', error);
@@ -89,7 +89,7 @@ export const resumeService = {
   // New method for polling analysis status
   getAnalysisStatus: async (resumeId: string): Promise<any> => {
     try {
-      const response = await api.get(`/api/resumes/${resumeId}/analysis-status`);
+      const response = await api.get(`/resumes/${resumeId}/analysis-status`);
       return response.data.data || response.data; // Handle both wrapped and unwrapped responses
     } catch (error: any) {
       console.error('Get analysis status error:', error);

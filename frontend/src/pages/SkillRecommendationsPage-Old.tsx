@@ -165,7 +165,7 @@ const SkillRecommendationsPage: React.FC = () => {
         experience_level: experienceLevel || undefined,
       };
 
-      const response = await api.post('/recommendations-lite', request);
+      const response = await api.post('/career/recommendations-lite', request);
 
       if (response.data.success) {
         setRecommendations(response.data);
