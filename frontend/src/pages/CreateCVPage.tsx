@@ -171,7 +171,7 @@ const CreateCVPage: React.FC = () => {
     setIsGenerating(true);
     
     try {
-      const response = await api.post('/generate-cv', cvData);
+      const response = await api.post('/api/ai/generate-cv', cvData);
       
       if (response.data.success) {
         setGeneratedCV(response.data);

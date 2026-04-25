@@ -54,10 +54,10 @@ setup_forwards() {
     echo $! > /tmp/ai-service.pid
     print_success "AI Service: http://localhost:5100"
     
-    # Grafana (service port: 3003)
-    minikube kubectl -- port-forward svc/grafana-service 3003:3003 -n $NAMESPACE &
+    # Grafana (service port: 3000)
+    minikube kubectl -- port-forward svc/grafana-service 3000:3000 -n $NAMESPACE &
     echo $! > /tmp/grafana.pid
-    print_success "Grafana: http://localhost:3003"
+    print_success "Grafana: http://localhost:3000"
     
     # Prometheus (service port: 9090, use 9091 to avoid WSL conflict)
     minikube kubectl -- port-forward svc/prometheus-service 9091:9090 -n $NAMESPACE &
@@ -106,7 +106,7 @@ show_status() {
     echo "  Frontend:   http://localhost:3100"
     echo "  Backend:    http://localhost:4100" 
     echo "  AI Service: http://localhost:5100"
-    echo "  Grafana:    http://localhost:3003"
+    echo "  Grafana:    http://localhost:3000"
     echo "  Prometheus: http://localhost:9091"
     echo "  ArgoCD:     http://localhost:18082"
     echo ""
