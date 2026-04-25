@@ -2,6 +2,10 @@ import axios from 'axios';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:4100';
 
+// Debug: Log the actual environment variable being used
+console.log('🔍 VITE_API_URL from import.meta.env:', import.meta.env.VITE_API_URL);
+console.log('🔍 Final API_BASE_URL:', API_BASE_URL);
+
 export const api = axios.create({
   baseURL: API_BASE_URL,
   timeout: 10000,
