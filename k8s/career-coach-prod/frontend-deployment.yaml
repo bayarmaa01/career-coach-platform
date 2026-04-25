@@ -27,7 +27,7 @@ spec:
     spec:
       containers:
       - name: frontend
-        image: frontend-prod:latest
+        image: frontend-prod:build-20250425204800
         imagePullPolicy: Never
         ports:
         - containerPort: 80
