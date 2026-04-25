@@ -38,13 +38,21 @@ spec:
           value: "/etc/grafana/provisioning"
         - name: GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH
           value: "/etc/grafana/provisioning/dashboards/application-metrics.json"
+        - name: GF_RENDERING_SERVER_URL
+          value: "http://renderer:8081/render"
+        - name: GF_LOG_LEVEL
+          value: "info"
+        - name: GF_SECURITY_ALLOW_EMBEDDING
+          value: "true"
+        - name: GF_AUTH_ANONYMOUS_ENABLED
+          value: "true"
         resources:
           requests:
-            memory: "128Mi"
-            cpu: "50m"
-          limits:
             memory: "256Mi"
-            cpu: "200m"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
         livenessProbe:
           httpGet:
             path: /

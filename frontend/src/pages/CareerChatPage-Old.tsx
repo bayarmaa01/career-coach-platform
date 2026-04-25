@@ -109,7 +109,7 @@ const CareerChatPage: React.FC = () => {
     setSuggestions([]);
 
     try {
-      const response = await api.post('/ai/chat', {
+      const response = await api.post('/api/ai/chat', {
         message: userMessage.content,
         user_profile: userProfile,
         conversation_id: conversationId,
