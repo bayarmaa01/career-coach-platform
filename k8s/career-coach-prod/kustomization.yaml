@@ -32,6 +32,7 @@ resources:
 # Monitoring
 - grafana-deployment.yaml
 - grafana-service.yaml
+- grafana-configmap.yaml
 - prometheus-deployment.yaml
 - prometheus-service.yaml
 - prometheus-configmap.yaml
