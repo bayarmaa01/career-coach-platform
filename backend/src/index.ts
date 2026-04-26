@@ -14,9 +14,24 @@ import careerRoutes from './routes/career';
 import aiRoutes from './routes/aiRoutes';
 import { errorHandler } from './middleware/errorHandler';
 import { notFound } from './middleware/notFound';
-import pool from './config/database';
+// import pool from './config/database'; // Temporarily disabled
 
-dotenv.config();
+const envPath = path.join(__dirname, '../.env');
+console.log("DEBUG - ENV PATH:", envPath);
+
+// Try to read the .env file directly to debug
+const fs = require('fs');
+try {
+  const envContent = fs.readFileSync(envPath, 'utf8');
+  console.log("DEBUG - ENV FILE CONTENT:", envContent);
+} catch (error) {
+  console.log("DEBUG - CANNOT READ ENV FILE:", error);
+}
+
+dotenv.config({ path: envPath });
+
+// Debug logging for environment variables
+console.log("DEBUG - GEMINI_API_KEY:", process.env.GEMINI_API_KEY ? "SET" : "NOT SET");
 
 // Prometheus metrics setup
 const register = new client.Registry();
@@ -116,24 +131,19 @@ app.use((req: Request, res: Response, next: NextFunction) => {
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
 // API routes
+console.log("DEBUG - Mounting routes...");
 app.use('/api/auth', authRoutes);
 app.use('/api/resumes', resumeRoutes);
 app.use('/api/career', careerRoutes);
 app.use('/api/ai', aiRoutes);
+console.log("DEBUG - Routes mounted successfully");
 
 // Health check endpoint
 app.get('/api/health', async (req: Request, res: Response) => {
+  console.log("DEBUG - Health endpoint called");
   try {
+    // Temporarily skip database check to isolate the issue
     let dbStatus = 'disconnected';
-    
-    // Test database connection (but don't fail if it's not available)
-    try {
-      const dbTest = await pool.query('SELECT NOW()');
-      dbStatus = 'connected';
-    } catch (dbError) {
-      console.log('Database not available for health check, but continuing...');
-      dbStatus = 'disconnected';
-    }
     
     res.status(200).json({
       status: 'OK',

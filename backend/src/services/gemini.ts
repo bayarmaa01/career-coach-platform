@@ -36,12 +36,10 @@ export interface GeminiResponse {
 class GeminiService {
   private baseURL: string;
   private apiKey: string;
-  private projectName: string;
 
   constructor() {
     this.baseURL = 'https://generativelanguage.googleapis.com/v1beta';
     this.apiKey = aiConfig.geminiApiKey;
-    this.projectName = aiConfig.geminiProjectName;
 
     if (!this.apiKey) {
       console.error('Gemini API key is not configured');
@@ -59,7 +57,7 @@ class GeminiService {
     
     for (const currentModel of models) {
       try {
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/${currentModel}:generateContent?key=${this.apiKey}`;
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${currentModel}:generateContent`;
 
         const requestBody: GeminiRequest = {
           contents: [
@@ -73,12 +71,12 @@ class GeminiService {
           ]
         };
 
-        console.log("Gemini payload:", JSON.stringify(requestBody, null, 2));
-        console.log("Gemini URL:", url);
+        console.log("REQUEST:", JSON.stringify(requestBody, null, 2));
 
         const response = await axios.post<GeminiResponse>(url, requestBody, {
           headers: {
-            'Content-Type': 'application/json',
+            "Content-Type": "application/json",
+            "x-goog-api-key": this.apiKey
           },
           timeout: 30000, // 30 second timeout
         });
@@ -95,12 +93,7 @@ class GeminiService {
       } catch (error: unknown) {
         const axiosError = axios.isAxiosError(error) ? error : undefined;
         
-        console.error("Gemini API request failed:", {
-          status: axiosError?.response?.status,
-          statusText: axiosError?.response?.statusText,
-          data: axiosError?.response?.data,
-          message: axiosError?.message || (error instanceof Error ? error.message : 'Unknown error')
-        });
+        console.log("ERROR DATA:", axiosError?.response?.data);
         
         if (axiosError) {
           const status = axiosError.response?.status;
@@ -118,15 +111,14 @@ class GeminiService {
             return this.getFallbackResponse(prompt);
           }
           
-          // If it's a 404 (model not found) or 400, try the next model
-          if (status === 404 || status === 400) {
-            if (currentModel === models[models.length - 1]) {
-              // Last model failed, use fallback
-              console.warn('⚠️ All Gemini models failed, using fallback response');
-              return this.getFallbackResponse(prompt);
-            }
-            console.log(`🔄 Retrying with next model: ${models[models.indexOf(currentModel) + 1]}`);
-            continue; // Try next model
+          // If it's a 404 (model not found), try the next model
+          if (status === 404) {
+            continue;
+          }
+
+          if (status === 400) {
+            console.error("Bad request:", axiosError.response?.data);
+            return this.getFallbackResponse(prompt);
           }
           
           // For rate limiting (429), wait and retry once

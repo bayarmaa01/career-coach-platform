@@ -9,6 +9,8 @@ import { authenticateToken } from '../middleware/auth';
 
 const router = Router();
 
+console.log("DEBUG - AI Routes loaded");
+
 /**
  * Apply authentication to all AI routes (temporarily disabled for testing)
  */
