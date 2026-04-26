@@ -1,11 +1,17 @@
+import dotenv from 'dotenv';
+import path from 'path';
+
+// Load environment variables FIRST before any other imports
+const envPath = path.join(__dirname, '../../.env.production');
+console.log("DEBUG - ENV PATH:", envPath);
+dotenv.config({ path: envPath });
+
 import express, { Application, Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import compression from 'compression';
 import morgan from 'morgan';
 import rateLimit from 'express-rate-limit';
-import dotenv from 'dotenv';
-import path from 'path';
 import client from 'prom-client';
 
 import authRoutes from './routes/auth';
@@ -15,9 +21,6 @@ import aiRoutes from './routes/aiRoutes';
 import { errorHandler } from './middleware/errorHandler';
 import { notFound } from './middleware/notFound';
 // import pool from './config/database'; // Temporarily disabled
-
-const envPath = path.join(__dirname, '../.env');
-console.log("DEBUG - ENV PATH:", envPath);
 
 // Try to read the .env file directly to debug
 const fs = require('fs');
@@ -59,7 +62,7 @@ const activeConnections = new client.Gauge({
 });
 
 const app: Application = express();
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 5001;
 const NODE_ENV = process.env.NODE_ENV || 'development';
 
 const limiter = rateLimit({
@@ -76,13 +79,13 @@ const limiter = rateLimit({
   }
 });
 
-// Security and middleware (re-enabled with working configuration)
-app.use(helmet({
-  contentSecurityPolicy: NODE_ENV === 'production' ? undefined : false,
-}));
-app.use(compression());
-app.use(morgan(NODE_ENV === 'production' ? 'combined' : 'dev'));
-app.use(limiter);
+// Security and middleware (temporarily disabled for debugging)
+// app.use(helmet({
+//   contentSecurityPolicy: NODE_ENV === 'production' ? undefined : false,
+// }));
+// app.use(compression());
+// app.use(morgan(NODE_ENV === 'production' ? 'combined' : 'dev'));
+// app.use(limiter);
 
 // CORS configuration
 const allowedOrigins = [
@@ -124,6 +127,14 @@ app.use((req: Request, res: Response, next: NextFunction) => {
     activeConnections.dec();
   });
   
+  next();
+});
+
+// Request logging middleware
+app.use((req: Request, res: Response, next: NextFunction) => {
+  console.log(`🔍 DEBUG - Incoming request: ${req.method} ${req.path}`);
+  console.log(`🔍 DEBUG - Full URL: ${req.url}`);
+  console.log(`🔍 DEBUG - Headers:`, req.headers);
   next();
 });
 
