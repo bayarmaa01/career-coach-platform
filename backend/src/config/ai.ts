@@ -1,6 +1,12 @@
 import dotenv from 'dotenv';
 
-dotenv.config();
+// Clear any cached environment variables
+delete process.env.GEMINI_API_KEY;
+delete process.env.AI_MODEL_API_KEY;
+delete process.env.GEMINI_PROJECT_NAME;
+delete process.env.GEMINI_PROJECT_NUMBER;
+
+dotenv.config({ path: '../.env.production' });
 
 export interface AIConfig {
   geminiApiKey: string;
