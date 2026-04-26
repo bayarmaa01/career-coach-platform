@@ -1,10 +1,16 @@
 import api from './api';
+import { demoAiService } from './demoAiService';
 import { CareerPath, SkillGap, Course, ResumeAnalysis } from '../types';
 
 export const careerService = {
   getCareerRecommendations: async (resumeId: string): Promise<CareerPath[]> => {
-    const response = await api.get(`/api/career/recommendations/${resumeId}`);
-    return response.data;
+    try {
+      const response = await api.get(`/api/career/recommendations/${resumeId}`);
+      return response.data;
+    } catch (error) {
+      console.log('Backend unavailable, using demo career recommendations');
+      return await demoAiService.getCareerRecommendations();
+    }
   },
 
   getSkillGapAnalysis: async (resumeId: string): Promise<SkillGap[]> => {

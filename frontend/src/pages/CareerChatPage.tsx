@@ -5,6 +5,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { api } from '../services/api';
+import { demoAiService } from '../services/demoAiService';
 
 interface ChatMessage {
   id: string;
@@ -116,18 +117,42 @@ const CareerChatPage: React.FC = () => {
         throw new Error(response.data.error || 'Failed to get response');
       }
     } catch (error: any) {
-      console.error('Chat error:', error);
-      const errorMessage = error.response?.data?.error || error.message || 'Failed to send message. Please try again.';
-      showToastMessage(errorMessage, 'error');
+      console.error('Backend chat error, using demo mode:', error);
+      
+      // Fallback to demo AI service
+      try {
+        const demoResponse = await demoAiService.chat(userMessage.content, userProfile);
+        
+        const assistantMessage: ChatMessage = {
+          id: (Date.now() + 1).toString(),
+          role: 'assistant',
+          content: demoResponse.response,
+          timestamp: new Date().toISOString(),
+          suggestions: demoResponse.suggestions || [],
+        };
 
-      const errorMessageObj: ChatMessage = {
-        id: (Date.now() + 1).toString(),
-        role: 'assistant',
-        content: `I apologize, but I encountered an error: ${errorMessage}. Please try again later.`,
-        timestamp: new Date().toISOString(),
-      };
+        setMessages(prev => [...prev, assistantMessage]);
+        setConversationId(demoResponse.conversation_id);
+        setSuggestions(demoResponse.suggestions || []);
 
-      setMessages(prev => [...prev, errorMessageObj]);
+        localStorage.setItem('conversationId', demoResponse.conversation_id);
+        
+        // Show a subtle demo mode indicator
+        showToastMessage('Demo mode: AI responses are simulated for demonstration', 'success');
+      } catch (demoError: any) {
+        console.error('Demo AI error:', demoError);
+        const errorMessage = demoError.message || 'Failed to get response. Please try again.';
+        showToastMessage(errorMessage, 'error');
+
+        const errorMessageObj: ChatMessage = {
+          id: (Date.now() + 1).toString(),
+          role: 'assistant',
+          content: `I apologize, but I encountered an error: ${errorMessage}. Please try again later.`,
+          timestamp: new Date().toISOString(),
+        };
+
+        setMessages(prev => [...prev, errorMessageObj]);
+      }
     } finally {
       setIsLoading(false);
     }
