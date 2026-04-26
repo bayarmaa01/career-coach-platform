@@ -48,14 +48,14 @@ class GeminiService {
     }
   }
 
-  async generateContent(prompt: string, model: string = 'gemini-1.5-flash'): Promise<string> {
+  async generateContent(prompt: string, model: string = 'gemini-2.5-flash'): Promise<string> {
     if (!this.apiKey) {
       console.error('Gemini API key is not configured');
       return this.getFallbackResponse(prompt);
     }
 
     // Try models in order of preference with fallback logic
-    const models = ['gemini-1.5-flash', 'gemini-1.5-pro'];
+    const models = ['gemini-2.5-flash'];
     
     for (const currentModel of models) {
       try {
