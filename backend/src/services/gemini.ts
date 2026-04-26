@@ -73,6 +73,9 @@ class GeminiService {
           ]
         };
 
+        console.log("Gemini payload:", JSON.stringify(requestBody, null, 2));
+        console.log("Gemini URL:", url);
+
         const response = await axios.post<GeminiResponse>(url, requestBody, {
           headers: {
             'Content-Type': 'application/json',
@@ -80,20 +83,23 @@ class GeminiService {
           timeout: 30000, // 30 second timeout
         });
 
+        console.log("Gemini response:", JSON.stringify(response.data, null, 2));
+
         if (response.data.candidates && response.data.candidates.length > 0) {
           console.log(`✅ Gemini API success with model: ${currentModel}`);
           return response.data.candidates[0].content.parts[0].text;
         } else {
+          console.error("No candidates in Gemini response:", response.data);
           throw new Error('No response from Gemini API');
         }
       } catch (error: unknown) {
-        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
         const axiosError = axios.isAxiosError(error) ? error : undefined;
         
-        console.error(`Gemini API error with model ${currentModel}:`, {
-          message: errorMessage,
+        console.error("Gemini API request failed:", {
           status: axiosError?.response?.status,
           statusText: axiosError?.response?.statusText,
+          data: axiosError?.response?.data,
+          message: axiosError?.message || (error instanceof Error ? error.message : 'Unknown error')
         });
         
         if (axiosError) {
@@ -103,6 +109,12 @@ class GeminiService {
           // Handle specific error cases
           if (status === 401) {
             console.error('❌ Invalid API key - using fallback responses');
+            return this.getFallbackResponse(prompt);
+          }
+          
+          // Handle API key expiration
+          if (status === 400 && axiosError?.response?.data?.error?.details?.some((detail: any) => detail.reason === 'API_KEY_INVALID')) {
+            console.error('❌ API key expired - using fallback responses');
             return this.getFallbackResponse(prompt);
           }
           
