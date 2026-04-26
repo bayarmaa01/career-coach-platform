@@ -684,7 +684,7 @@ class AIService {
   /**
    * Analyze resume text content
    */
-  async analyzeResume(fileContent: string): Promise<any> {
+  async analyzeResume(fileContent: string, pdfBuffer?: Buffer): Promise<any> {
     try {
       logger.info('Analyzing resume with Gemini AI', { contentLength: fileContent.length });
 
@@ -711,7 +711,7 @@ Format your response as JSON with the following structure:
   "status": "completed"
 }`;
 
-      const response = await geminiService.generateContent(prompt);
+      const response = await geminiService.generateContent(prompt, 'gemini-2.5-flash', pdfBuffer);
       
       // Try to parse as JSON, fallback to text if needed
       let analysis;

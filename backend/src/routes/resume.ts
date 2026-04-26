@@ -83,8 +83,8 @@ router.post('/upload', authenticateToken, upload.single('resume'), async (req, r
       
       console.log(`PDF text extracted: ${extractedText.length} characters`);
       
-      // Use integrated AI service for resume analysis
-      const analysis = await aiService.analyzeResume(extractedText);
+      // Use integrated AI service for resume analysis with PDF buffer for demo mode
+      const analysis = await aiService.analyzeResume(extractedText, fileBuffer);
       await pool.query(
         'UPDATE resumes SET status = $1, analysis_data = $2, content_text = $3 WHERE id = $4',
         ['completed', JSON.stringify(analysis), extractedText, resume.id]

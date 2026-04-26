@@ -1,5 +1,7 @@
 import axios from 'axios';
 import aiConfig from '../config/ai';
+import { CVParser } from './cvParser';
+import { DemoAI } from './demoAI';
 
 export interface GeminiRequest {
   contents: Array<{
@@ -46,7 +48,28 @@ class GeminiService {
     }
   }
 
-  async generateContent(prompt: string, model: string = 'gemini-2.5-flash'): Promise<string> {
+  async generateContent(prompt: string, model: string = 'gemini-2.5-flash', pdfBuffer?: Buffer): Promise<string> {
+    // Check if DEMO_MODE is enabled
+    if (aiConfig.demoMode) {
+      console.log('🤖 Using Demo AI mode - no API calls will be made');
+      
+      if (pdfBuffer) {
+        try {
+          const cvData = await CVParser.extractFromPDF(pdfBuffer);
+          return await DemoAI.generateResponse(prompt, cvData);
+        } catch (error) {
+          console.error('Error parsing PDF in demo mode:', error);
+          // Fallback to text-based parsing
+          const cvData = CVParser.parseText(prompt);
+          return await DemoAI.generateResponse(prompt, cvData);
+        }
+      } else {
+        // For chat without PDF, create minimal CV data from prompt context
+        const cvData = this.extractCVDataFromPrompt(prompt);
+        return await DemoAI.generateResponse(prompt, cvData);
+      }
+    }
+
     if (!this.apiKey) {
       console.error('Gemini API key is not configured');
       return this.getFallbackResponse(prompt);
@@ -152,7 +175,7 @@ class GeminiService {
     return this.getFallbackResponse(prompt);
   }
 
-  async analyzeResume(resumeText: string): Promise<any> {
+  async analyzeResume(resumeText: string, pdfBuffer?: Buffer): Promise<any> {
     const prompt = `
       Analyze the following resume and provide a detailed breakdown in JSON format:
 
@@ -219,7 +242,7 @@ class GeminiService {
       Respond only with valid JSON, no additional text.
     `;
 
-    const response = await this.generateContent(prompt);
+    const response = await this.generateContent(prompt, 'gemini-2.5-flash', pdfBuffer);
     
     try {
       // Extract JSON from response
@@ -351,6 +374,46 @@ class GeminiService {
       console.error('Failed to parse course recommendations:', error);
       throw new Error('Invalid JSON response from Gemini API');
     }
+  }
+
+  private extractCVDataFromPrompt(prompt: string): any {
+    // Extract skills, experience, and education from the prompt context
+    const skills: string[] = [];
+    const experience: any[] = [];
+    const education: any[] = [];
+    
+    // Extract skills from prompt
+    const skillKeywords = ['JavaScript', 'React', 'Node.js', 'Python', 'TypeScript', 'HTML', 'CSS', 'SQL', 'AWS', 'Docker'];
+    skillKeywords.forEach(skill => {
+      if (prompt.toLowerCase().includes(skill.toLowerCase())) {
+        skills.push(skill);
+      }
+    });
+    
+    // Extract experience years if mentioned
+    const yearsMatch = prompt.match(/(\d+)\s*(?:years?|yrs?)/i);
+    if (yearsMatch) {
+      experience.push({
+        title: 'Professional',
+        company: 'Various',
+        years: parseInt(yearsMatch[1])
+      });
+    }
+    
+    // Extract education if mentioned
+    if (prompt.toLowerCase().includes('bachelor') || prompt.toLowerCase().includes('master') || prompt.toLowerCase().includes('degree')) {
+      education.push({
+        degree: "Bachelor's Degree",
+        institution: "University"
+      });
+    }
+    
+    return {
+      skills,
+      experience,
+      education,
+      rawText: prompt
+    };
   }
 
   private getFallbackResponse(prompt: string): string {
