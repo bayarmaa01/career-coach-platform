@@ -58,15 +58,36 @@ router.post('/upload', authenticateToken, upload.single('resume'), async (req, r
 
     // AI Service Integration with better error handling
     try {
-      // Read the uploaded file to extract text content
+      // Extract text from PDF file
       const fs = require('fs').promises;
-      const fileContent = await fs.readFile(path, 'utf8');
+      const fileBuffer = await fs.readFile(path);
+      
+      // Try pdf-parse first, fallback to basic text extraction
+      let extractedText = '';
+      try {
+        const { PDFParse } = require('pdf-parse');
+        const pdfParser = new PDFParse();
+        const pdfData = await pdfParser.parseBuffer(fileBuffer);
+        extractedText = pdfData.text || '';
+        console.log('✅ PDF parsed with pdf-parse library');
+      } catch (pdfError) {
+        // Fallback: extract text from buffer
+        extractedText = fileBuffer.toString('utf8', 0, Math.min(15000, fileBuffer.length));
+        extractedText = extractedText.replace(/[^\x20-\x7E\n\r\t]/g, ' ');
+        console.log('⚠️ PDF parse failed, using basic text extraction');
+      }
+      
+      // Clean extracted text to remove null bytes and limit size
+      extractedText = extractedText.replace(/\u0000/g, ''); // Remove null bytes
+      extractedText = extractedText.substring(0, 15000); // Limit to 15k characters for Gemini API
+      
+      console.log(`PDF text extracted: ${extractedText.length} characters`);
       
       // Use integrated AI service for resume analysis
-      const analysis = await aiService.analyzeResume(fileContent);
+      const analysis = await aiService.analyzeResume(extractedText);
       await pool.query(
         'UPDATE resumes SET status = $1, analysis_data = $2, content_text = $3 WHERE id = $4',
-        ['completed', JSON.stringify(analysis), fileContent, resume.id]
+        ['completed', JSON.stringify(analysis), extractedText, resume.id]
       );
 
       return res.status(201).json({
