@@ -49,17 +49,13 @@ class GeminiService {
   }
 
   async generateContent(prompt: string, model: string = 'gemini-1.5-flash'): Promise<string> {
-    // Temporarily use fallback responses due to API key issues
-    console.warn('Using fallback response due to Gemini API configuration issues');
-    return this.getFallbackResponse(prompt);
-    
-    /* Original API code - disabled temporarily
     if (!this.apiKey) {
-      throw new Error('Gemini API key is not configured');
+      console.error('Gemini API key is not configured');
+      return this.getFallbackResponse(prompt);
     }
 
-    // Try different model names if the first one fails
-    const models = ['gemini-3-flash-preview', 'gemini-3.1-flash-lite-preview', 'gemini-2.5-flash', 'gemini-1.5-flash'];
+    // Try models in order of preference with fallback logic
+    const models = ['gemini-1.5-flash', 'gemini-1.5-pro'];
     
     for (const currentModel of models) {
       try {
@@ -84,50 +80,78 @@ class GeminiService {
         };
 
         const response = await axios.post<GeminiResponse>(url, requestBody, {
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          timeout: 30000, // 30 second timeout
+        });
 
-      if (response.data.candidates && response.data.candidates.length > 0) {
-        return response.data.candidates[0].content.parts[0].text;
-      } else {
-        throw new Error('No response from Gemini API');
-      }
-    } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      const axiosError = axios.isAxiosError(error) ? error : undefined;
-      
-      console.error(`Gemini API error with model ${currentModel}:`, {
-      message: errorMessage,
-      status: axiosError?.response?.status,
-      statusText: axiosError?.response?.statusText,
-      // Don't log the full error object as it contains the API key
-    });
-      if (axiosError) {
-        const status = axiosError.response?.status;
-        const statusText = axiosError.response?.statusText;
-        
-        // If it's a 404 or 400, try the next model
-        if (status === 404 || status === 400) {
-          if (currentModel === models[models.length - 1]) {
-            // Last model failed, throw the error
-            throw new Error(`Gemini API request failed: ${status} ${statusText}. All models failed.`);
-          }
-          continue; // Try next model
+        if (response.data.candidates && response.data.candidates.length > 0) {
+          console.log(`✅ Gemini API success with model: ${currentModel}`);
+          return response.data.candidates[0].content.parts[0].text;
         } else {
-          // For other errors, throw immediately
-          throw new Error(`Gemini API request failed: ${status} ${statusText}`);
+          throw new Error('No response from Gemini API');
         }
+      } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        const axiosError = axios.isAxiosError(error) ? error : undefined;
+        
+        console.error(`Gemini API error with model ${currentModel}:`, {
+          message: errorMessage,
+          status: axiosError?.response?.status,
+          statusText: axiosError?.response?.statusText,
+        });
+        
+        if (axiosError) {
+          const status = axiosError.response?.status;
+          const statusText = axiosError.response?.statusText;
+          
+          // Handle specific error cases
+          if (status === 401) {
+            console.error('❌ Invalid API key - using fallback responses');
+            return this.getFallbackResponse(prompt);
+          }
+          
+          // If it's a 404 (model not found) or 400, try the next model
+          if (status === 404 || status === 400) {
+            if (currentModel === models[models.length - 1]) {
+              // Last model failed, use fallback
+              console.warn('⚠️ All Gemini models failed, using fallback response');
+              return this.getFallbackResponse(prompt);
+            }
+            console.log(`🔄 Retrying with next model: ${models[models.indexOf(currentModel) + 1]}`);
+            continue; // Try next model
+          }
+          
+          // For rate limiting (429), wait and retry once
+          if (status === 429) {
+            console.log('⏳ Rate limited, waiting 2 seconds before retry...');
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            if (currentModel === models[models.length - 1]) {
+              return this.getFallbackResponse(prompt);
+            }
+            continue;
+          }
+          
+          // For other errors, try next model
+          if (currentModel === models[models.length - 1]) {
+            console.warn('⚠️ All models failed with various errors, using fallback');
+            return this.getFallbackResponse(prompt);
+          }
+          continue;
+        }
+        
+        // Non-axios errors
+        if (currentModel === models[models.length - 1]) {
+          console.warn('⚠️ All models failed with unknown errors, using fallback');
+          return this.getFallbackResponse(prompt);
+        }
+        continue;
       }
-      throw new Error(errorMessage);
-    }
     }
     
-    // If we get here, all models failed, provide fallback response
-    console.warn('All Gemini models failed, providing fallback response');
+    // Should never reach here, but fallback just in case
     return this.getFallbackResponse(prompt);
-    */
   }
 
   async analyzeResume(resumeText: string): Promise<any> {
